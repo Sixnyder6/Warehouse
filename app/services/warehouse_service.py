@@ -38,7 +38,7 @@ from app.models import (
     NewsItem, NewsItemCreate, NewsTag, Employee,
     SyncPushOperation
 )
-from app.services.telemetry_service import log_operation
+from app.services.telemetry_service import log_operation, is_read_budget_exceeded
 
 # ==========================================
 # ЛОГГИРОВАНИЕ
@@ -283,6 +283,10 @@ async def firestore_query_with_filter(
     """
     Выполняет запрос к Firestore с фильтрацией на сервере.
     """
+    if is_read_budget_exceeded():
+        logger.warning(f"🚨 Query Guard: Firestore read budget exceeded! Query blocked for {collection}.")
+        return []
+        
     url = f"https://firestore.googleapis.com/v1/projects/{FIREBASE_PROJECT_ID}/databases/(default)/documents:runQuery"
     
     if isinstance(value, str):
@@ -354,6 +358,10 @@ async def firestore_query_ordered(
     """
     Выполняет запрос к Firestore с сортировкой.
     """
+    if is_read_budget_exceeded():
+        logger.warning(f"🚨 Query Guard: Firestore read budget exceeded! Ordered query blocked for {collection}.")
+        return []
+        
     url = f"https://firestore.googleapis.com/v1/projects/{FIREBASE_PROJECT_ID}/databases/(default)/documents:runQuery"
     
     query = {
@@ -406,6 +414,10 @@ async def firestore_get_all_paginated(
     page_size: int = 50, 
     page_token: str = None
 ) -> Tuple[List[dict], Optional[str]]:
+    if is_read_budget_exceeded():
+        logger.warning(f"🚨 Query Guard: Firestore read budget exceeded! Paginated query blocked for {collection}.")
+        return [], None
+        
     url = f"{FIREBASE_BASE_URL}/{collection}"
     params = {
         "pageSize": page_size,
@@ -442,6 +454,10 @@ async def firestore_get_all_paginated(
 
 
 async def firestore_get_document(collection: str, doc_id: str) -> Optional[dict]:
+    if is_read_budget_exceeded():
+        logger.warning(f"🚨 Query Guard: Firestore read budget exceeded! Get document blocked for {collection}/{doc_id}.")
+        return None
+        
     url = f"{FIREBASE_BASE_URL}/{collection}/{doc_id}"
     
     try:
@@ -536,7 +552,7 @@ async def get_items(limit: int = 1000, use_cache: bool = True, include_deleted: 
         items = [i for i in items if not i.get("isDeleted", False)]
     
     if use_cache:
-        _cache.set(cache_key, items, ttl_seconds=60)
+        _cache.set(cache_key, items, ttl_seconds=600)
     
     return items
 
@@ -989,8 +1005,8 @@ async def get_logs(limit: int = 50) -> List[dict]:
     # Запрашиваем логи, упорядоченные по времени в порядке убывания (DESCENDING)
     logs = await firestore_query_ordered("warehouse_logs", "timestamp", "DESCENDING", limit=limit)
     
-    # Кэшируем логи на 60 секунд
-    _cache.set(cache_key, logs, ttl_seconds=60)
+    # Кэшируем логи на 10 минут
+    _cache.set(cache_key, logs, ttl_seconds=600)
     return logs
 
 
@@ -1077,7 +1093,7 @@ async def get_orders(
         result = [o for o in result if o.get("userId") == user_id]
     
     result.sort(key=lambda x: x.get('createdAt', datetime.min) if x.get('createdAt') else datetime.min, reverse=True)
-    _cache.set(cache_key, result, ttl_seconds=60)
+    _cache.set(cache_key, result, ttl_seconds=600)
     
     return result
 
@@ -1244,6 +1260,11 @@ async def get_today_activity_stats() -> Dict[str, Dict[str, int]]:
     """
     Возвращает статистику сканирования сотрудников за сегодня, сгруппированную по ID (creatorId).
     """
+    cache_key = "today_activity_stats"
+    cached = _cache.get(cache_key)
+    if cached is not None:
+        return cached
+
     try:
         local_today = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
         start_of_today_ms = int(local_today.timestamp() * 1000)
@@ -1275,6 +1296,7 @@ async def get_today_activity_stats() -> Dict[str, Dict[str, int]]:
             stats[creator_id]["scansToday"] += item_count
             stats[creator_id]["batchesToday"] += 1
             
+        _cache.set(cache_key, stats, ttl_seconds=180) # Кэшируем на 3 минуты
         return stats
     except Exception as e:
         logger.error(f"❌ Ошибка получения статистики активности: {e}")
@@ -1306,7 +1328,7 @@ async def get_internal_users(limit: int = 100) -> List[dict]:
         user["batchesToday"] = user_stats["batchesToday"]
         user["scanRatePerHour"] = int(user_stats["scansToday"] / hours_elapsed)
         
-    _cache.set(cache_key, users, ttl_seconds=15) # Уменьшаем TTL кэша для оперативности
+    _cache.set(cache_key, users, ttl_seconds=300) # Увеличили TTL кэша до 5 минут для экономии лимитов
     return users
 
 
@@ -1476,7 +1498,7 @@ async def check_firebase_connection() -> dict:
         url = f"{FIREBASE_BASE_URL}/warehouse_items"
         params = {"pageSize": 1}
         client = get_http_client()
-        response = await client.get(url, params=params, headers=_firestore_headers(), timeout=10.0)
+        response = await client.get(url, params=params, headers=await _get_headers_async(), timeout=10.0)
         if response.status_code == 200:
             status["connected"] = True
         else:

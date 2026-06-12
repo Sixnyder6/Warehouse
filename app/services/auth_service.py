@@ -40,7 +40,7 @@ from google.oauth2 import service_account
 from google.auth.transport.requests import Request as AuthRequest
 
 from app.models import AuthState, UserRole, ShiftRequestStatus
-from app.services.telemetry_service import log_operation
+from app.services.telemetry_service import log_operation, is_read_budget_exceeded
 
 # ==========================================
 # ЛОГГИРОВАНИЕ
@@ -205,6 +205,10 @@ async def firebase_auth_sign_in(email: str, password: str) -> Optional[dict]:
 
 async def firestore_get_document(collection: str, doc_id: str) -> Optional[dict]:
     """Получить документ через REST API."""
+    if is_read_budget_exceeded():
+        logger.warning(f"🚨 Query Guard: Firestore read budget exceeded! Get document blocked for {collection}/{doc_id}.")
+        return None
+        
     url = f"{FIREBASE_BASE_URL}/{collection}/{doc_id}"
     try:
         t0 = time.time()
@@ -238,6 +242,10 @@ async def firestore_get_document(collection: str, doc_id: str) -> Optional[dict]
 
 async def firestore_query_by_field(collection: str, field: str, value: str, limit: int = 1) -> List[dict]:
     """Найти документы по полю через REST API."""
+    if is_read_budget_exceeded():
+        logger.warning(f"🚨 Query Guard: Firestore read budget exceeded! Query blocked for {collection}.")
+        return []
+        
     url = f"{FIREBASE_BASE_URL}:runQuery"
 
     query = {

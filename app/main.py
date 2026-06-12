@@ -101,7 +101,7 @@ class DashboardCache:
     def clear(self):
         self._cache.clear()
 
-_dashboard_cache = DashboardCache(ttl_seconds=30)
+_dashboard_cache = DashboardCache(ttl_seconds=120)
 
 # ==========================================
 # RATE LIMITER
@@ -148,6 +148,16 @@ def get_auth_service() -> AuthService:
     if _auth_service_instance is None:
         _auth_service_instance = AuthService()
     return _auth_service_instance
+
+@app.get("/")
+async def root_redirect(request: Request):
+    user_agent = request.headers.get("user-agent", "").lower()
+    # Проверяем, мобильное ли устройство
+    is_mobile = any(keyword in user_agent for keyword in ["mobi", "android", "iphone", "ipad", "ipod", "opera mini", "iemobile"])
+    if is_mobile:
+        return RedirectResponse(url="/mobile/dashboard", status_code=303)
+    else:
+        return RedirectResponse(url="/desktop/dashboard", status_code=303)
 
 @app.get("/login")
 async def login_page(request: Request, error: Optional[str] = Query(None)):

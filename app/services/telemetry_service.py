@@ -199,3 +199,38 @@ def get_telemetry_summary_24h() -> Dict[str, Any]:
                 "cache_misses": 0
             }
         }
+
+_budget_status = {"exceeded": False, "last_check": 0}
+
+def is_read_budget_exceeded(max_daily_reads: int = 40000) -> bool:
+    """
+    Проверяет, превышен ли суточный бюджет на операции чтения Firestore.
+    Кэширует статус на 10 секунд во избежание частых обращений к локальной БД.
+    """
+    import time
+    now = time.time()
+    if now - _budget_status["last_check"] < 10:
+        return _budget_status["exceeded"]
+
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT SUM(count) 
+            FROM firestore_operations 
+            WHERE operation_type = 'READ' AND date(timestamp) = date('now')
+        """)
+        row = cursor.fetchone()
+        total_reads = row[0] or 0
+        conn.close()
+        
+        exceeded = total_reads >= max_daily_reads
+        _budget_status["exceeded"] = exceeded
+        _budget_status["last_check"] = now
+        
+        if exceeded:
+            logger.critical(f"🚨 Query Guard ACTIVE: Firestore read budget exceeded ({total_reads}/{max_daily_reads})!")
+        return exceeded
+    except Exception as e:
+        logger.error(f"Error checking read budget: {e}")
+        return _budget_status["exceeded"]

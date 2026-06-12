@@ -36,7 +36,7 @@ export const OrdersView: React.FC<OrdersViewProps> = ({ currentUserState }) => {
 
   useEffect(() => {
     loadOrders();
-    const interval = setInterval(loadOrders, 20000); // Poll orders list every 20s
+    const interval = setInterval(loadOrders, 60000); // Poll orders list every 60s
     return () => clearInterval(interval);
   }, []);
 

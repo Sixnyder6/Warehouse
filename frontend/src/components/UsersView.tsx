@@ -85,7 +85,7 @@ export const UsersView: React.FC = () => {
     };
 
     init();
-    const interval = setInterval(fetchPresence, 15000); // Poll presence every 15s
+    const interval = setInterval(fetchPresence, 60000); // Poll presence every 60s
     return () => clearInterval(interval);
   }, []);
 

@@ -58,8 +58,19 @@ FIREBASE_CRED_PATH = os.path.join(
     "firebase", "firebase_credentials.json"
 )
 
-with open(FIREBASE_CRED_PATH, 'r') as f:
-    cred_data = json.load(f)
+# Load Firebase credentials: check environment variable first (for cloud container deploys),
+# otherwise fall back to local credentials file.
+firebase_cred_env = os.environ.get("FIREBASE_CREDENTIALS_JSON")
+if firebase_cred_env:
+    try:
+        cred_data = json.loads(firebase_cred_env)
+        logger.info("🔐 Loaded Firebase credentials from environment variable")
+    except Exception as e:
+        logger.error(f"❌ Failed to parse FIREBASE_CREDENTIALS_JSON from env: {e}")
+        raise e
+else:
+    with open(FIREBASE_CRED_PATH, 'r') as f:
+        cred_data = json.load(f)
 
 PROJECT_ID = cred_data['project_id']
 FIREBASE_BASE_URL = f"https://firestore.googleapis.com/v1/projects/{PROJECT_ID}/databases/(default)/documents"

@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#2563eb">
+    <link rel="manifest" href="/static/manifest.json">
+    <link rel="icon" href="/static/icons/icon-192x192.svg" type="image/svg+xml">
+    <link rel="apple-touch-icon" href="/static/icons/icon-192x192.svg">
+    <title>Вход в систему — Склад</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@phosphor-icons/web@2.1.1/src/css/icons.css">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Outfit', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #09090e 0%, #111029 40%, #1e102f 100%);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            overflow: hidden;
+            position: relative;
+        }
+
+        /* Фоновое свечение */
+        .glow-sphere {
+            position: absolute;
+            width: 400px;
+            height: 400px;
+            background: radial-gradient(circle, rgba(124, 58, 237, 0.15) 0%, transparent 70%);
+            border-radius: 50%;
+            top: 20%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            pointer-events: none;
+            z-index: 1;
+        }
+
+        .login-box {
+            background: rgba(255, 255, 255, 0.03);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            padding: 40px 32px;
+            border-radius: 24px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4), inset 0 1px 1px rgba(255, 255, 255, 0.1);
+            width: 100%;
+            max-width: 380px;
+            z-index: 2;
+            display: flex;
+            flex-direction: column;
+            gap: 24px;
+        }
+
+        .logo-section {
+            text-align: center;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .logo-icon-box {
+            width: 60px;
+            height: 60px;
+            border-radius: 16px;
+            background: linear-gradient(135deg, rgba(37, 99, 235, 0.2), rgba(124, 58, 237, 0.2));
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 28px;
+            color: #7c3aed;
+            box-shadow: 0 8px 16px rgba(124, 58, 237, 0.1);
+        }
+
+        .login-box h2 {
+            font-size: 24px;
+            font-weight: 700;
+            color: #f3f4f6;
+            letter-spacing: -0.5px;
+        }
+
+        .input-group {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .input-label {
+            font-size: 11px;
+            color: #6b6b80;
+            font-weight: 600;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+        }
+
+        .input-wrap {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            width: 100%;
+            height: 50px;
+            border-radius: 12px;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            padding: 0 14px;
+            transition: all 0.25s;
+        }
+
+        .input-wrap:focus-within {
+            border-color: rgba(124, 58, 237, 0.5);
+            background: rgba(124, 58, 237, 0.05);
+            box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.1);
+        }
+
+        .input-wrap i {
+            font-size: 18px;
+            color: #6b6b80;
+            flex-shrink: 0;
+        }
+
+        .input-wrap input {
+            flex: 1;
+            background: transparent;
+            border: none;
+            outline: none;
+            font-size: 15px;
+            color: #f3f4f6;
+            font-family: inherit;
+        }
+
+        .input-wrap input::placeholder {
+            color: rgba(107, 107, 128, 0.5);
+        }
+
+        .login-box button {
+            width: 100%;
+            height: 52px;
+            background: linear-gradient(135deg, #2563eb, #7c3aed);
+            color: white;
+            border: none;
+            border-radius: 12px;
+            font-size: 16px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            box-shadow: 0 4px 12px rgba(124, 58, 237, 0.25);
+        }
+
+        .login-box button:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 6px 16px rgba(124, 58, 237, 0.35);
+        }
+
+        .login-box button:active {
+            transform: translateY(1px);
+            opacity: 0.95;
+        }
+
+        .error-message {
+            background: rgba(239, 68, 68, 0.12);
+            border: 1px solid rgba(239, 68, 68, 0.25);
+            color: #ef4444;
+            padding: 12px 16px;
+            border-radius: 12px;
+            text-align: center;
+            font-size: 13px;
+            font-weight: 500;
+        }
+
+        .subtitle {
+            text-align: center;
+            color: #6b6b80;
+            font-size: 12px;
+            font-weight: 500;
+            letter-spacing: 0.3px;
+        }
+
+        /* Анимация загрузки */
+        .ph-spinner {
+            display: inline-block !important;
+            animation: spin 1s linear infinite !important;
+        }
+
+        @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+<div class="glow-sphere"></div>
+<div class="login-box">
+    <div class="logo-section">
+        <div class="logo-icon-box">
+            <i class="ph ph-warehouse"></i>
+        </div>
+        <h2>Склад запчастей</h2>
+    </div>
+
+    {% if error %}
+    <div class="error-message">{{ error }}</div>
+    {% endif %}
+
+    <form method="post" action="/login" style="display: flex; flex-direction: column; gap: 16px;">
+        <div class="input-group">
+            <span class="input-label">Логин</span>
+            <div class="input-wrap">
+                <i class="ph ph-user-circle"></i>
+                <input type="text" name="login" placeholder="username или email" required />
+            </div>
+        </div>
+        <div class="input-group">
+            <span class="input-label">Пароль</span>
+            <div class="input-wrap">
+                <i class="ph ph-lock"></i>
+                <input type="password" name="password" placeholder="••••••••" required />
+            </div>
+        </div>
+        <button type="submit" style="margin-top: 8px;">
+            <span>Войти</span>
+            <i class="ph ph-arrow-right"></i>
+        </button>
+    </form>
+
+    <div class="subtitle">Warehouse Management System</div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    const form = document.querySelector('form');
+    if (form) {
+        form.addEventListener('submit', function(e) {
+            const btn = this.querySelector('button[type="submit"]');
+            if (btn) {
+                btn.disabled = true;
+                btn.style.opacity = '0.7';
+                btn.style.cursor = 'not-allowed';
+                btn.innerHTML = '<i class="ph ph-spinner" style="font-size: 18px;"></i> <span>Вход...</span>';
+            }
+            this.querySelectorAll('input').forEach(input => {
+                input.readOnly = true;
+            });
+        });
+    }
+});
+
+if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/static/sw.js', { scope: '/' })
+            .then((reg) => {
+                console.log('✅ SW зарегистрирован:', reg.scope);
+                reg.addEventListener('updatefound', () => {
+                    const newWorker = reg.installing;
+                    newWorker.addEventListener('statechange', () => {
+                        if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                            console.log('🔄 SW обновлён — перезагрузите страницу');
+                        }
+                    });
+                });
+            })
+            .catch((err) => {
+                console.warn('⚠️ SW не зарегистрирован:', err);
+            });
+    });
+}
+</script>
+</body>
+</html>

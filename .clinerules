@@ -1,0 +1,118 @@
+# 🏭 Warehouse Management System — CLINE RULES
+
+## 📌 КРАТКАЯ СУТЬ
+FastAPI + Firebase Firestore. Склад запчастей «Бестужевская 10».
+Две версии: десктоп (админка) и мобильная (сотрудники).
+
+## 🚀 БЫСТРЫЕ КОМАНДЫ
+```bash
+python run_warehouse.py          # Запуск сервера
+python -m uvicorn app.main:app --reload --port 8000
+python test_firebase.py          # Проверка Firebase напрямую
+python -c "import requests; print(requests.post('http://localhost:8000/api/auth/login?username=admin&password=admin123').text)"  # Быстрый тест логина
+```
+
+## 📍 URL
+- http://localhost:8000/login — страница входа
+- http://localhost:8000/desktop/dashboard — дашборд
+- http://localhost:8000/docs — Swagger
+
+## ⚡ НЕ ТРАТИТЬ ТОКЕНЫ НА ЧТЕНИЕ
+- `project_map.txt` — битая кодировка
+- `app_simple.py` — устаревший Flask прототип
+- `.venv/` — виртуальное окружение
+- `requirements.txt` — не менять
+- `bootstrap.zip` — не нужно
+
+## 🔑 КЛЮЧЕВЫЕ ФАЙЛЫ
+| Файл | Что содержит |
+|------|-------------|
+| `app/main.py` (~1100 строк) | Все роуты, login/logout, desktop и mobile страницы |
+| `app/services/auth_service.py` | **Аутентификация** — OAuth2 Bearer токен |
+| `app/services/warehouse_service.py` | Бизнес-логика — работа с Firebase |
+| `app/api/auth.py` | API эндпоинты аутентификации |
+| `app/models.py` | Все Pydantic модели |
+| `app/templates/login.html` | Страница входа |
+| `firebase/firebase_credentials.json` | Сервисный аккаунт Firebase (НЕ КОММИТИТЬ) |
+
+## 🔐 АУТЕНТИФИКАЦИЯ (исправлено 30.05.2026)
+- **Использовать OAuth2 Bearer токен** через сервисный аккаунт
+- API-ключ из google-services.json НЕ РАБОТАЕТ для Firestore REST API
+- **Токен** кэшируется на 3000 сек (в `_token_cache`)
+- **Пользователи** кэшируются 120 сек (в `UserCache`)
+- **Auth state** кэшируется 30 сек
+- **Пароли**: поддерживается `hash:SHA256` или открытый текст
+
+## 🔥 FIRESTORE КОЛЛЕКЦИИ И ПОЛЯ
+### `internal_users` (аутентификация)
+```
+username, password, displayName, role, isAllowedToWork, status, 
+isShiftActive, shiftStartTime, shiftRequestStatus, activeDeviceId
+```
+Роли: `admin`, `muver`, `electrician`, `technic`, `inventory_manager`, `supervisor`, `security`, `user`
+
+### `warehouse_items` (товары)
+```
+fullName, shortName, sku, category, unit, stockCount, totalStock, 
+lowStockThreshold, imageUrl, keywords, updatedAt, isDeleted
+```
+
+### `warehouse_orders` (заказы)
+```
+userId, userName, userRole, items[{itemId, itemName, quantity, unit}], 
+status, createdAt, completedAt
+```
+Статусы: CREATED → PROCESSING → READY → COMPLETED / CANCELLED
+
+### `warehouse_logs` (лог операций)
+```
+itemId, itemName, userId, userName, quantityChange, timestamp
+```
+
+### `warehouse_news` (новости)
+```
+title, content, tag (TODAY/URGENT/GENERAL)
+```
+
+### `warehouse_employees` (сотрудники)
+```
+name, role, imageUrl, phone, status
+```
+
+## 🐛 ЧАСТЫЕ ПРОБЛЕМЫ И РЕШЕНИЯ
+| Проблема | Причина | Решение |
+|----------|---------|---------|
+| 401 при входе | Firebase quota exceeded | Подождать 5-10 мин (Spark план) |
+| Страница "сбрасывается" без ошибки | login.html не показывает error | **ИСПРАВЛЕНО** — теперь показывает |
+| login не работает вообще | Использовался API-ключ вместо OAuth2 | **ИСПРАВЛЕНО** — сервисный аккаунт |
+| 429 Quota exceeded | Лимит бесплатного Spark плана | Создать индекс в Firebase или перейти на Blaze |
+
+## 📁 ВАЖНЫЕ ПУТИ
+```
+C:\Users\pankr\PycharmProjects\Warehouse\
+├── app/                     # Основной код
+├── firebase/                # 🔑 Ключи Firebase
+├── tests/                   # Тесты
+├── scripts/                 # Скрипты
+├── .cline/
+│   ├── memory.md            # 📖 Детальная память проекта
+│   ├── sessions/            # 📋 Логи сессий (последние работы)
+│   └── .clinerules          # ⚡ ЭТОТ ФАЙЛ — автозагрузка
+```
+
+## 🛠 ПРИНЦИПЫ РАБОТЫ
+1. **Менять только то что нужно** — не переписывать целиком
+2. **Кэшировать всё** — Firebase дорогой (квота Spark)
+3. **Не трогать Android код** — он в другом проекте
+4. **UI на русском**, ошибки на русском
+5. **При `Quota exceeded`** — сказать подождать
+6. **Перед изменениями читать `.cline/sessions/`** — знать контекст последних работ
+7. **После сессии писать краткую сводку** в новый файл `.cline/sessions/YYYY-MM-DD_HH-MM_кратко.md`
+
+## 📋 ЧТО ЧИТАТЬ ПРИ ОПРЕДЕЛЁННЫХ ЗАПРОСАХ
+- Если просят **починить вход/логин** → читать `auth_service.py`, `login.html`, `main.py` (роуты логина)
+- Если просят **добавить API** → читать `main.py` (там же роуты)
+- Если просят **поменять товары/склад** → читать `warehouse_service.py`, `models.py`
+- Если просят **оглавление проекта** → читать `memory.md`
+- Если просят **проверить Firebase** → запускать `test_firebase.py` или `check_users.py`
+- Если **не помню что делали в прошлый раз** → читать `.cline/sessions/` последний файл

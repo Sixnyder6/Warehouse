@@ -1,0 +1,11 @@
+План работ:
+- [x] Проанализировали код
+- [x] Проверили файлы static/ (sw.js пуст, manifest.json пуст, icons/ пусты)
+- [x] Посмотрели desktop_base.html и логику
+- [ ] 1. Создать SVG-иконки для PWA (192x192, 512x512)
+- [ ] 2. Создать manifest.json (PWA манифест)
+- [ ] 3. Создать sw.js (Service Worker со стратегиями кеширования)
+- [ ] 4. Подключить Service Worker в desktop_base.html
+- [ ] 5. Подключить Service Worker в login.html
+- [ ] 6. Создать fallback-страницу для офлайна
+- [ ] 7. Проверить работоспособность

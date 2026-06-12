@@ -1,0 +1,59 @@
+# Python Virtual Environment
+.venv/
+venv/
+ENV/
+env/
+bin/
+lib/
+include/
+pip-selfcheck.json
+
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyd
+
+# Node.js dependencies
+node_modules/
+frontend/node_modules/
+
+# Frontend builds
+frontend/dist/
+dist/
+
+# Firebase / Google Credentials (CRITICAL SECURITY)
+firebase/firebase_credentials.json
+firebase_credentials.json
+*.pem
+ssl/
+
+# Local configuration / secrets
+.env
+app/.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# IDEs and Editors
+.idea/
+.vscode/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# AI Assistant files (optional, but clean)
+.cline/
+.gemini/
+scratch/
+
+# Database files
+*.db
+*.sqlite3
+
+# OS files
+Thumbs.db
+db.json

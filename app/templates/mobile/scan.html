@@ -1,0 +1,334 @@
+{% extends "mobile/base.html" %}
+
+{% block title %}Сканер{% endblock %}
+
+{% block content %}
+
+<header class="ios-header">
+    <button onclick="history.back()" style="background:none;border:none;cursor:pointer;padding:4px;display:flex;align-items:center;justify-content:center;">
+        <i class="ph ph-arrow-left" style="font-size:24px;color:#1a1a1a;"></i>
+    </button>
+    <h1 style="font-size:20px;display:flex;align-items:center;gap:6px;">
+        <i class="ph ph-qr-code" style="color:#007aff;font-size:24px;"></i>
+        <span>Сканер</span>
+    </h1>
+    <div></div>
+</header>
+
+<div class="scroll-content">
+
+    <!-- Ручной ввод -->
+    <div style="background:white;border-radius:14px;padding:16px;margin-bottom:16px;box-shadow:0 1px 3px rgba(0,0,0,0.06);">
+        <label style="font-size:13px;color:#888;font-weight:500;">Введите код/SKU вручную</label>
+        <div style="display:flex;gap:8px;margin-top:8px;">
+            <input type="text" id="manualSkuInput" placeholder="Например: BR-001"
+                style="flex:1;padding:13px;border:1.5px solid #e5e5e5;border-radius:12px;font-size:16px;outline:none;"
+                onkeydown="if(event.key==='Enter')manualSearch()">
+            <button onclick="manualSearch()"
+                style="width:50px;height:50px;background:#007aff;border:none;border-radius:12px;color:white;cursor:pointer;display:flex;align-items:center;justify-content:center;">
+                <i class="ph ph-magnifying-glass" style="font-size:20px;"></i>
+            </button>
+        </div>
+    </div>
+
+    <!-- Кнопки сканирования — три варианта -->
+    <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:16px;">
+
+        <!-- 1. Живая камера (для Android Chrome + через HTTPS) -->
+        <button onclick="startLiveCamera()"
+            style="width:100%;padding:17px;background:linear-gradient(135deg,#007aff,#005ecb);border:none;border-radius:16px;color:white;font-size:16px;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:10px;box-shadow:0 4px 16px rgba(0,122,255,0.3);">
+            <i class="ph ph-video-camera" style="font-size:22px;"></i>
+            Сканировать камерой
+        </button>
+
+        <!-- 2. Сфотографировать (открывает нативную камеру телефона) -->
+        <button onclick="document.getElementById('captureInput').click()"
+            style="width:100%;padding:15px;background:white;border:1.5px solid #007aff;border-radius:14px;color:#007aff;font-size:15px;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;">
+            <i class="ph ph-camera" style="font-size:20px;"></i>
+            Сфотографировать код
+        </button>
+
+        <!-- 3. Выбрать из галереи -->
+        <button onclick="document.getElementById('galleryInput').click()"
+            style="width:100%;padding:14px;background:white;border:1.5px solid #e5e5e5;border-radius:14px;color:#333;font-size:15px;font-weight:500;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;">
+            <i class="ph ph-image-square" style="font-size:18px;color:#888;"></i>
+            Выбрать фото из галереи
+        </button>
+
+    </div>
+
+    <!-- Статус / обработка -->
+    <div id="processingMsg" style="display:none;padding:20px;text-align:center;background:white;border-radius:14px;box-shadow:0 1px 3px rgba(0,0,0,0.06);">
+        <div style="width:32px;height:32px;border:3px solid #e5f0ff;border-top:3px solid #007aff;border-radius:50%;animation:spin 0.8s linear infinite;margin:0 auto 12px;"></div>
+        <p id="processingText" style="margin:0;font-size:15px;font-weight:500;color:#333;">Распознаём код…</p>
+    </div>
+
+    <!-- Результат -->
+    <div id="scanResult" style="display:none;background:white;border-radius:14px;overflow:hidden;margin-bottom:16px;box-shadow:0 1px 3px rgba(0,0,0,0.06);">
+        <div style="padding:12px 16px;border-bottom:1px solid #f0f0f0;display:flex;align-items:center;gap:6px;color:#34c759;font-weight:600;font-size:15px;">
+            <i class="ph ph-check-circle" style="font-size:18px;"></i>
+            Найдено
+        </div>
+        <div style="padding:16px;display:flex;gap:14px;">
+            <div id="resultImage" style="width:80px;height:80px;background:#f5f5f5;border-radius:12px;display:flex;align-items:center;justify-content:center;overflow:hidden;flex-shrink:0;">
+                <i class="ph ph-package" style="font-size:36px;color:#ccc;"></i>
+            </div>
+            <div style="flex:1;min-width:0;">
+                <div id="resultName" style="font-size:16px;font-weight:700;word-break:break-word;"></div>
+                <div id="resultSku" style="font-size:13px;color:#888;margin-top:4px;"></div>
+                <div id="resultStock" style="font-size:15px;font-weight:700;color:#007aff;margin-top:6px;"></div>
+            </div>
+        </div>
+        <div style="padding:12px 16px;display:flex;gap:10px;border-top:1px solid #f0f0f0;background:#fafafa;">
+            <button class="ios-btn danger" id="takeBtn"
+                style="flex:1;display:flex;align-items:center;justify-content:center;gap:6px;">
+                <i class="ph ph-arrow-up-right" style="font-size:17px;"></i>Взять
+            </button>
+            <button class="ios-btn primary" id="addBtn"
+                style="flex:1;display:flex;align-items:center;justify-content:center;gap:6px;">
+                <i class="ph ph-plus" style="font-size:17px;"></i>Добавить
+            </button>
+        </div>
+    </div>
+
+    <!-- Ошибка -->
+    <div id="scanError" style="display:none;padding:20px;background:white;border-radius:14px;box-shadow:0 1px 3px rgba(0,0,0,0.06);text-align:center;color:#ff3b30;">
+        <i class="ph ph-warning-circle" style="font-size:40px;display:block;margin-bottom:10px;opacity:0.8;"></i>
+        <p id="scanErrorText" style="margin:0;font-size:15px;font-weight:600;"></p>
+    </div>
+
+</div>
+
+<!-- ── Fullscreen live camera overlay ── -->
+<div id="cameraOverlay" style="display:none;position:fixed;inset:0;z-index:9999;">
+
+    <!-- Camera container (Html5Qrcode renders video here) — БЕЗ фона, чтобы видео было видно -->
+    <div id="cameraView" style="position:absolute;inset:0;"></div>
+
+    <!-- Header (ПОВЕРХ видео) -->
+    <div style="position:absolute;top:0;left:0;right:0;z-index:2;padding:16px 20px;padding-top:calc(env(safe-area-inset-top,16px) + 16px);background:linear-gradient(to bottom,rgba(0,0,0,0.7),transparent);display:flex;align-items:center;justify-content:space-between;">
+        <div style="display:flex;align-items:center;gap:8px;color:white;font-size:16px;font-weight:600;">
+            <i class="ph ph-camera" style="color:#34c759;font-size:20px;"></i>
+            Сканирование
+        </div>
+        <button onclick="stopLiveCamera()" style="width:36px;height:36px;background:rgba(255,255,255,0.15);border:none;border-radius:50%;color:white;font-size:20px;cursor:pointer;display:flex;align-items:center;justify-content:center;">
+            <i class="ph ph-x"></i>
+        </button>
+    </div>
+
+    <!-- Frame overlay (ПОВЕРХ видео, pointer-events:none чтобы клики проходили сквозь) -->
+    <div style="position:absolute;inset:0;z-index:1;display:flex;align-items:center;justify-content:center;pointer-events:none;">
+        <div style="position:absolute;inset:0;background:radial-gradient(ellipse 55% 55% at 50% 48%,transparent 55%,rgba(0,0,0,0.6) 100%);"></div>
+        <div style="position:relative;width:240px;height:240px;">
+            <div style="position:absolute;top:0;left:0;width:28px;height:28px;border-top:4px solid #34c759;border-left:4px solid #34c759;border-radius:6px 0 0 0;"></div>
+            <div style="position:absolute;top:0;right:0;width:28px;height:28px;border-top:4px solid #34c759;border-right:4px solid #34c759;border-radius:0 6px 0 0;"></div>
+            <div style="position:absolute;bottom:0;left:0;width:28px;height:28px;border-bottom:4px solid #34c759;border-left:4px solid #34c759;border-radius:0 0 0 6px;"></div>
+            <div style="position:absolute;bottom:0;right:0;width:28px;height:28px;border-bottom:4px solid #34c759;border-right:4px solid #34c759;border-radius:0 0 6px 0;"></div>
+            <div style="position:absolute;left:10px;right:10px;height:2px;background:#34c759;box-shadow:0 0 10px #34c759,0 0 20px rgba(52,211,153,0.5);border-radius:2px;animation:scanline 2s ease-in-out infinite;"></div>
+        </div>
+    </div>
+
+    <!-- Bottom hint (ПОВЕРХ видео) -->
+    <div style="position:absolute;bottom:0;left:0;right:0;z-index:2;padding:24px;padding-bottom:calc(env(safe-area-inset-bottom,16px) + 20px);text-align:center;background:linear-gradient(to top,rgba(0,0,0,0.7),transparent);">
+        <p style="color:rgba(255,255,255,0.8);font-size:14px;margin:0;">Наведите на штрих-код или QR-код</p>
+    </div>
+</div>
+
+<!-- Hidden inputs -->
+<input type="file" id="captureInput" accept="image/*" capture="environment" style="display:none" onchange="handlePhoto(this)">
+<input type="file" id="galleryInput" accept="image/*" style="display:none" onchange="handlePhoto(this)">
+
+<style>
+@keyframes spin { to { transform: rotate(360deg); } }
+@keyframes scanline {
+    0%,100% { top: 8%; }
+    50%      { top: 88%; }
+}
+</style>
+
+{% endblock %}
+
+{% block extra_scripts %}
+<script src="/static/js/html5-qrcode.min.js"></script>
+<script>
+    let html5QrScanner = null;   // Html5Qrcode instance для live-камеры
+    let lastCode       = '';
+    let lastTime       = 0;
+
+    // ── Live camera (Html5Qrcode — работает на iOS Safari и Android) ───────
+    async function startLiveCamera() {
+        if (typeof Html5Qrcode === 'undefined') {
+            document.getElementById('captureInput').click();
+            return;
+        }
+
+        try {
+            document.getElementById('cameraOverlay').style.display = 'flex';
+            // Ждём перерисовку DOM, чтобы контейнер получил реальные размеры
+            await new Promise(r => requestAnimationFrame(r));
+            html5QrScanner = new Html5Qrcode('cameraView');
+
+            await html5QrScanner.start(
+                { facingMode: 'environment' },          // задняя камера
+                { fps: 10, qrbox: { width: 240, height: 240 } },
+                (decodedText, decodedResult) => {
+                    // onScanSuccess
+                    if (!decodedText) return;
+                    const now = Date.now();
+                    if (decodedText === lastCode && now - lastTime < 2000) return;
+                    lastCode = decodedText; lastTime = now;
+                    try { navigator.vibrate && navigator.vibrate(150); } catch {}
+                    stopLiveCamera();
+                    searchBySku(decodedText);
+                },
+                (errorMessage) => {
+                    // onScanFailure — игнорируем, это просто кадры без кода
+                }
+            );
+        } catch (err) {
+            console.warn('Live camera failed, switching to photo:', err);
+            stopLiveCamera();
+            // Если ошибка не из-за HTTPS — пробуем фото
+            if (location.protocol === 'https:' || location.hostname === 'localhost') {
+                showError('Ошибка камеры: ' + (err.message || err));
+            } else {
+                document.getElementById('captureInput').click();
+            }
+        }
+    }
+
+    function stopLiveCamera() {
+        if (html5QrScanner) {
+            html5QrScanner.stop().then(() => {
+                html5QrScanner = null;
+                document.getElementById('cameraOverlay').style.display = 'none';
+            }).catch(() => {
+                html5QrScanner = null;
+                document.getElementById('cameraOverlay').style.display = 'none';
+            });
+        } else {
+            document.getElementById('cameraOverlay').style.display = 'none';
+        }
+    }
+
+    // ── Photo scan ─────────────────────────────────────────────────────────
+    async function handlePhoto(input) {
+        const file = input.files && input.files[0];
+        if (!file) return;
+        input.value = '';
+        hideAll();
+        showProcessing('Распознаём код…');
+
+        try {
+            let code = null;
+
+            // Метод 1: BarcodeDetector на Image (Chrome Android, Chrome Desktop)
+            if ('BarcodeDetector' in window) {
+                const img = new Image();
+                const url = URL.createObjectURL(file);
+                img.src = url;
+                await new Promise((res, rej) => { img.onload = res; img.onerror = rej; });
+                const det = new BarcodeDetector({
+                    formats: ['qr_code','code_128','code_39','ean_13','ean_8','upc_a','upc_e','data_matrix','aztec']
+                });
+                const results = await det.detect(img);
+                URL.revokeObjectURL(url);
+                if (results.length > 0) code = results[0].rawValue;
+            }
+
+            // Метод 2: html5-qrcode (Safari, Firefox — всё остальное)
+            if (!code && typeof Html5Qrcode !== 'undefined') {
+                const tempId = '_qr_' + Date.now();
+                const div = document.createElement('div');
+                div.id = tempId;
+                div.style.cssText = 'position:absolute;left:-9999px;width:1px;height:1px;overflow:hidden;';
+                document.body.appendChild(div);
+                try {
+                    const scanner = new Html5Qrcode(tempId);
+                    code = await scanner.scanFile(file, false);
+                } finally {
+                    document.getElementById(tempId)?.remove();
+                }
+            }
+
+            if (!code) throw new Error('Код не найден. Попробуйте поближе и с хорошим освещением.');
+            hideAll();
+            try { navigator.vibrate && navigator.vibrate(150); } catch {}
+            searchBySku(code);
+
+        } catch (err) {
+            hideAll();
+            showError(err.message || 'Не удалось распознать код');
+        }
+    }
+
+    // ── Поиск товара ───────────────────────────────────────────────────────
+    function manualSearch() {
+        const code = document.getElementById('manualSkuInput').value.trim();
+        if (code) searchBySku(code);
+    }
+
+    async function searchBySku(code) {
+        hideAll();
+        let cleanCode = code.trim();
+        
+        // Если это URL — вытаскиваем id, sku или code
+        if (cleanCode.startsWith('http://') || cleanCode.startsWith('https://')) {
+            try {
+                const urlObj = new URL(cleanCode);
+                const idParam = urlObj.searchParams.get('id');
+                const skuParam = urlObj.searchParams.get('sku');
+                const codeParam = urlObj.searchParams.get('code');
+                cleanCode = idParam || skuParam || codeParam || cleanCode;
+            } catch (e) {
+                console.warn('Failed to parse URL:', e);
+            }
+        }
+
+        showProcessing('Ищем товар: ' + cleanCode);
+        try {
+            const res = await fetch('/api/warehouse/items/search?code=' + encodeURIComponent(cleanCode));
+            if (!res.ok) throw new Error('Товар не найден: ' + cleanCode);
+            const item = await res.json();
+            hideAll();
+            showResult(item);
+        } catch (e) {
+            hideAll();
+            showError(e.message || 'Товар не найден');
+        }
+    }
+
+    // ── UI ─────────────────────────────────────────────────────────────────
+    function showResult(item) {
+        const imgDiv = document.getElementById('resultImage');
+        if (item.imageUrl) {
+            imgDiv.innerHTML = `<img src="${item.imageUrl}" style="width:100%;height:100%;object-fit:contain;padding:8px;" onerror="this.style.display='none'">`;
+        } else {
+            imgDiv.innerHTML = '<i class="ph ph-package" style="font-size:36px;color:#ccc;"></i>';
+        }
+        document.getElementById('resultName').textContent = item.shortName || item.fullName || '—';
+        document.getElementById('resultSku').textContent = 'SKU: ' + (item.sku || '—');
+        document.getElementById('resultStock').textContent = 'Остаток: ' + (item.stockCount || 0) + ' шт';
+        document.getElementById('takeBtn').onclick = () => location.href = '/mobile/take_part?id=' + item.id + '&user_id={{ user_id }}&user_role={{ user_role }}&user_name={{ user_name | urlencode }}';
+        document.getElementById('addBtn').onclick  = () => location.href = '/mobile/take_part?id=' + item.id + '&action=add&user_id={{ user_id }}&user_role={{ user_role }}&user_name={{ user_name | urlencode }}';
+        document.getElementById('scanResult').style.display = 'block';
+        window.scrollTo({ top: document.getElementById('scanResult').offsetTop - 20, behavior: 'smooth' });
+    }
+
+    function showProcessing(text) {
+        document.getElementById('processingText').textContent = text || 'Загрузка…';
+        document.getElementById('processingMsg').style.display = 'block';
+    }
+
+    function showError(msg) {
+        document.getElementById('scanErrorText').textContent = msg;
+        document.getElementById('scanError').style.display = 'block';
+    }
+
+    function hideAll() {
+        document.getElementById('scanResult').style.display   = 'none';
+        document.getElementById('scanError').style.display    = 'none';
+        document.getElementById('processingMsg').style.display = 'none';
+    }
+</script>
+{% endblock %}

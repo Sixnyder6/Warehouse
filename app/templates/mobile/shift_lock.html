@@ -1,0 +1,518 @@
+{% extends "mobile/base.html" %}
+
+{% block title %}Начало смены{% endblock %}
+
+{% block extra_styles %}
+<style>
+    .tab-bar { display: none !important; }
+    body { padding-bottom: 0 !important; }
+</style>
+{% endblock %}
+
+{% block content %}
+<style>
+    /* ═══════════════════════════════════════════
+       Stardust Shift Lock Screen
+       Аналог Android ShiftLockScreen (Kotlin)
+       ═══════════════════════════════════════════ */
+
+    :root {
+        --stardust-bg: #0d0d1a;
+        --stardust-primary: #7c3aed;
+        --stardust-success: #34c759;
+        --stardust-warning: #f59e0b;
+        --stardust-text-primary: #f3f4f6;
+        --stardust-text-secondary: #6b6b80;
+        --stardust-item-bg: rgba(255,255,255,0.08);
+    }
+
+    .shift-wrap {
+        min-height: 100vh;
+        min-height: 100dvh;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        padding: 24px;
+        background: #0d0d1a;
+        position: relative;
+        overflow: hidden;
+    }
+
+    .shift-glow {
+        position: absolute;
+        width: 300px;
+        height: 300px;
+        top: 15%;
+        left: calc(50% - 150px);
+        background: radial-gradient(circle, rgba(124,58,237,0.18) 0%, transparent 70%);
+        border-radius: 50%;
+        pointer-events: none;
+        transition: background 1.5s ease;
+    }
+
+    /* ══ Glass Card ══ */
+    .glass-card {
+        width: 90%;
+        max-width: 380px;
+        border-radius: 32px;
+        padding: 32px 24px;
+        background: linear-gradient(180deg, rgba(0,0,0,0.55) 0%, rgba(0,0,0,0.35) 100%);
+        border: 1px solid rgba(255,255,255,0.08);
+        position: relative;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        backdrop-filter: blur(20px);
+        -webkit-backdrop-filter: blur(20px);
+        box-shadow: 0 8px 40px rgba(0,0,0,0.3);
+    }
+
+    /* Пульсирующая градиентная обводка */
+    .glass-card::before {
+        content: '';
+        position: absolute;
+        inset: -1px;
+        border-radius: 32px;
+        padding: 1px;
+        background: linear-gradient(135deg, rgba(255,255,255,0.1), rgba(255,255,255,0.4), rgba(255,255,255,0.1));
+        -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+        -webkit-mask-composite: xor;
+        mask-composite: exclude;
+        pointer-events: none;
+        animation: borderPulse 2s ease-in-out infinite;
+    }
+
+    @keyframes borderPulse {
+        0%, 100% { opacity: 0.4; }
+        50% { opacity: 0.85; }
+    }
+
+    .greeting-text {
+        font-size: 16px;
+        color: rgba(255,255,255,0.7);
+        font-weight: 500;
+        text-align: center;
+        margin-bottom: 28px;
+    }
+
+    .clock {
+        font-size: 72px;
+        font-weight: 700;
+        color: white;
+        letter-spacing: 2px;
+        line-height: 1;
+        margin-bottom: 6px;
+        transition: text-shadow 1.5s ease;
+    }
+
+    .clock.morning { text-shadow: 0 0 30px rgba(255,167,38,0.5), 0 0 60px rgba(255,109,0,0.25); }
+    .clock.day { text-shadow: 0 0 30px rgba(41,182,246,0.5), 0 0 60px rgba(0,145,234,0.25); }
+    .clock.evening { text-shadow: 0 0 30px rgba(236,64,122,0.5), 0 0 60px rgba(216,27,96,0.25); }
+    .clock.night { text-shadow: 0 0 30px rgba(126,87,194,0.5), 0 0 60px rgba(94,53,177,0.25); }
+
+    .status-text {
+        font-size: 13px;
+        color: rgba(255,255,255,0.5);
+        margin-bottom: 32px;
+        font-weight: 500;
+    }
+    .status-text.pending-status {
+        color: #f59e0b;
+    }
+
+    /* ══ Кнопки ══ */
+    .shift-btn-wrap {
+        width: 100%;
+        min-height: 56px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: all 0.3s ease;
+    }
+
+    .shift-btn {
+        width: 100%;
+        height: 56px;
+        border-radius: 16px;
+        border: none;
+        font-size: 16px;
+        font-weight: 700;
+        letter-spacing: 1px;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 10px;
+        transition: all 0.2s ease;
+        -webkit-tap-highlight-color: transparent;
+    }
+    .shift-btn:active { transform: scale(0.97); opacity: 0.85; }
+    .shift-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    .shift-btn.start {
+        color: #000;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+    }
+    /* Цвета кнопки задаются через JS (data-accent attribute) */
+
+    .shift-btn.request {
+        background: transparent;
+        border: 1.5px solid rgba(255,255,255,0.3);
+        color: white;
+    }
+
+    .pend-wrap {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 16px;
+        height: 56px;
+        width: 100%;
+    }
+    .pend-spinner {
+        width: 24px;
+        height: 24px;
+        border: 2.5px solid rgba(245,158,11,0.3);
+        border-top-color: #f59e0b;
+        border-radius: 50%;
+        animation: spin 0.7s linear infinite;
+    }
+    .pend-text {
+        color: #f59e0b;
+        font-weight: 700;
+        font-size: 15px;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .logout-link {
+        margin-top: 20px;
+        font-size: 14px;
+        color: rgba(255,255,255,0.4);
+        cursor: pointer;
+        background: none;
+        border: none;
+        font-family: inherit;
+        -webkit-tap-highlight-color: transparent;
+        transition: color 0.2s;
+    }
+    .logout-link:hover { color: rgba(255,255,255,0.6); }
+
+    /* ══ System Status Bar ══ */
+    .sys-bar {
+        position: fixed;
+        bottom: 20px;
+        left: 50%;
+        transform: translateX(-50%);
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        opacity: 0.7;
+        z-index: 10;
+    }
+    @supports (padding-bottom: env(safe-area-inset-bottom)) {
+        .sys-bar { bottom: calc(20px + env(safe-area-inset-bottom)); }
+    }
+    .sys-dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        flex-shrink: 0;
+    }
+    .sys-dot.online { background: #34c759; }
+    .sys-dot.offline { background: #ff3b30; }
+    .sys-text {
+        font-size: 12px;
+        color: white;
+        font-weight: 500;
+    }
+    .sys-sep {
+        font-size: 12px;
+        color: white;
+        opacity: 0.5;
+    }
+
+    /* Toast */
+    .shift-toast {
+        position: fixed;
+        top: 20px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: rgba(255,59,48,0.15);
+        border: 1px solid rgba(255,59,48,0.3);
+        color: #ff3b30;
+        padding: 12px 20px;
+        border-radius: 12px;
+        font-size: 14px;
+        font-weight: 500;
+        z-index: 9999;
+        display: none;
+        text-align: center;
+        max-width: 340px;
+    }
+    .shift-toast.show { display: block; }
+    @supports (padding-top: env(safe-area-inset-top)) {
+        .shift-toast { top: calc(20px + env(safe-area-inset-top)); }
+    }
+</style>
+
+<div class="shift-wrap">
+    <div class="shift-glow" id="shiftGlow"></div>
+
+    <!-- Toast ошибок -->
+    <div class="shift-toast" id="shiftToast"></div>
+
+    <!-- Glass Card -->
+    <div class="glass-card">
+        <div class="greeting-text" id="greetingText">Добрый день, {{ user_name }}</div>
+
+        <div class="clock morning" id="clock">--:--</div>
+
+        <div class="status-text" id="statusText">Доступ закрыт</div>
+
+        <!-- Кнопка: динамически меняется -->
+        <div class="shift-btn-wrap" id="btnArea">
+            <!-- Заполнится через JS -->
+        </div>
+
+        <button class="logout-link" onclick="doShiftLogout()" style="display: inline-flex; align-items: center; gap: 6px; justify-content: center; margin-top: 20px;"><i class="ph ph-sign-out"></i> Выйти</button>
+    </div>
+
+    <!-- Системный статус -->
+    <div class="sys-bar" id="sysBar">
+        <div class="sys-dot online" id="sysDot"></div>
+        <span class="sys-text" id="sysPing">Связь: --ms</span>
+        <span class="sys-sep">•</span>
+        <span class="sys-text" id="sysVersion">Версия 1.0.0</span>
+    </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════
+// Данные с сервера (передаются через Jinja)
+// ═══════════════════════════════════════════════
+const USER_ID = "{{ user_id }}";
+const USER_NAME = "{{ user_name }}";
+const USER_ROLE = "{{ user_role }}";
+const IS_ALLOWED = {{ 'true' if is_allowed_to_work else 'false' }};
+const SHIFT_STATUS = "{{ shift_request_status }}"; // NONE, PENDING, APPROVED, DENIED
+const APP_VERSION = "1.0.5";
+
+// ═══════════════════════════════════════════════
+// Время суток → цвета и приветствия
+// ═══════════════════════════════════════════════
+const TIME_THEMES = {
+    morning: { greeting: 'Доброе утро', accent: '#FFA726', glow: '#FF6D00', clockClass: 'morning' },
+    day:     { greeting: 'Добрый день',  accent: '#29B6F6', glow: '#0091EA', clockClass: 'day' },
+    evening: { greeting: 'Добрый вечер', accent: '#EC407A', glow: '#D81B60', clockClass: 'evening' },
+    night:   { greeting: 'Доброй ночи', accent: '#7E57C2', glow: '#5E35B1', clockClass: 'night' },
+};
+
+function getTimeTheme(hour) {
+    if (hour >= 6 && hour < 12) return TIME_THEMES.morning;
+    if (hour >= 12 && hour < 18) return TIME_THEMES.day;
+    if (hour >= 18 && hour < 22) return TIME_THEMES.evening;
+    return TIME_THEMES.night;
+}
+
+// ═══════════════════════════════════════════════
+// Часы
+// ═══════════════════════════════════════════════
+const clockEl = document.getElementById('clock');
+const greetingEl = document.getElementById('greetingText');
+const shiftGlow = document.getElementById('shiftGlow');
+
+let lastTheme = null;
+
+function pad(n) { return n < 10 ? '0' + n : n; }
+
+function updateClock() {
+    const now = new Date();
+    const h = now.getHours();
+    const m = now.getMinutes();
+    clockEl.textContent = pad(h) + ':' + pad(m);
+
+    const theme = getTimeTheme(h);
+
+    // Обновляем приветствие только при смене темы
+    if (lastTheme !== theme) {
+        lastTheme = theme;
+        greetingEl.textContent = theme.greeting + ', ' + USER_NAME;
+
+        // Меняем класс часов для glow
+        clockEl.className = 'clock ' + theme.clockClass;
+
+        // Меняем glow-пятно
+        shiftGlow.style.background = `radial-gradient(circle, ${theme.glow}1A 0%, transparent 70%)`;
+
+        // Обновляем кнопку если "начать смену"
+        const startBtn = document.getElementById('startShiftBtn');
+        if (startBtn) {
+            startBtn.style.background = `linear-gradient(135deg, ${theme.accent}, ${theme.glow})`;
+        }
+    }
+}
+
+updateClock();
+setInterval(updateClock, 1000);
+
+// ═══════════════════════════════════════════════
+// Кнопки в зависимости от статуса
+// ═══════════════════════════════════════════════
+const btnArea = document.getElementById('btnArea');
+const statusText = document.getElementById('statusText');
+const theme = lastTheme || TIME_THEMES.day;
+
+function renderButton() {
+    if (IS_ALLOWED || SHIFT_STATUS === 'APPROVED') {
+        // Можно начинать смену
+        statusText.textContent = 'Готов к смене';
+        statusText.className = 'status-text';
+        btnArea.innerHTML = `
+            <button class="shift-btn start" id="startShiftBtn"
+                style="background: linear-gradient(135deg, ${theme.accent}, ${theme.glow});"
+                onclick="doStartShift()">
+                <i class="ph ph-play" style="font-size: 20px;"></i>
+                НАЧАТЬ СМЕНУ
+            </button>
+        `;
+    } else if (SHIFT_STATUS === 'PENDING') {
+        statusText.textContent = 'Ожидание доступа...';
+        statusText.className = 'status-text pending-status';
+        btnArea.innerHTML = `
+            <div class="pend-wrap">
+                <div class="pend-spinner"></div>
+                <span class="pend-text">Запрос отправлен...</span>
+            </div>
+        `;
+    } else {
+        // Доступ закрыт — кнопка запроса
+        statusText.textContent = 'Доступ закрыт';
+        statusText.className = 'status-text';
+        btnArea.innerHTML = `
+            <button class="shift-btn request" onclick="doRequestAccess()">
+                <i class="ph ph-envelope" style="font-size: 20px;"></i>
+                Запросить доступ
+            </button>
+        `;
+    }
+}
+
+renderButton();
+
+// ═══════════════════════════════════════════════
+// Действия
+// ═══════════════════════════════════════════════
+let isSubmitting = false;
+
+function showToast(msg) {
+    const t = document.getElementById('shiftToast');
+    t.textContent = msg;
+    t.classList.add('show');
+    setTimeout(() => t.classList.remove('show'), 3500);
+}
+
+async function doStartShift() {
+    if (isSubmitting) return;
+    isSubmitting = true;
+    const btn = document.getElementById('startShiftBtn');
+    if (btn) { btn.disabled = true; btn.textContent = '...'; }
+
+    try {
+        const resp = await fetch('/api/mobile/shift/start', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ user_id: USER_ID })
+        });
+        const data = await resp.json();
+        if (data.success) {
+            // Сохраняем данные сессии
+            sessionStorage.setItem('user_id', USER_ID);
+            sessionStorage.setItem('user_name', USER_NAME);
+            sessionStorage.setItem('user_role', USER_ROLE);
+            sessionStorage.setItem('is_logged_in', 'true');
+            // На дашборд
+            window.location.href = '/mobile/dashboard?user_id=' + encodeURIComponent(USER_ID)
+                + '&user_role=' + encodeURIComponent(USER_ROLE)
+                + '&user_name=' + encodeURIComponent(USER_NAME);
+        } else {
+            showToast(data.error || 'Ошибка при начале смены');
+        }
+    } catch(e) {
+        showToast('Ошибка соединения с сервером');
+    } finally {
+        isSubmitting = false;
+        if (btn) { btn.disabled = false; btn.textContent = 'НАЧАТЬ СМЕНУ'; }
+    }
+}
+
+async function doRequestAccess() {
+    if (isSubmitting) return;
+    isSubmitting = true;
+
+    try {
+        const resp = await fetch('/api/mobile/shift/request-access', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ user_id: USER_ID })
+        });
+        const data = await resp.json();
+        if (data.success) {
+            // Перезагружаем страницу чтобы отобразить PENDING
+            location.reload();
+        } else {
+            showToast(data.error || 'Ошибка при запросе доступа');
+        }
+    } catch(e) {
+        showToast('Ошибка соединения с сервером');
+    } finally {
+        isSubmitting = false;
+    }
+}
+
+async function doShiftLogout() {
+    if (USER_ID) {
+        try {
+            await fetch('/api/mobile/logout', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ user_id: USER_ID })
+            });
+        } catch(e) {}
+    }
+    sessionStorage.clear();
+    window.location.href = '/mobile/login';
+}
+
+// ═══════════════════════════════════════════════
+// Системный статус: ping и версия
+// ═══════════════════════════════════════════════
+async function checkSystemStatus() {
+    const dot = document.getElementById('sysDot');
+    const pingEl = document.getElementById('sysPing');
+    const verEl = document.getElementById('sysVersion');
+
+    verEl.textContent = 'Версия ' + APP_VERSION;
+
+    const start = Date.now();
+    try {
+        const resp = await fetch('/api/mobile/status');
+        const elapsed = Date.now() - start;
+        if (resp.ok) {
+            dot.className = 'sys-dot online';
+            pingEl.textContent = 'Связь: ' + elapsed + 'ms';
+        } else {
+            dot.className = 'sys-dot offline';
+            pingEl.textContent = 'Нет подключения';
+        }
+    } catch(e) {
+        dot.className = 'sys-dot offline';
+        pingEl.textContent = 'Нет подключения';
+    }
+}
+
+checkSystemStatus();
+setInterval(checkSystemStatus, 30000);
+</script>
+{% endblock %}

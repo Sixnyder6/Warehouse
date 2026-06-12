@@ -1,0 +1,285 @@
+{% extends "mobile/base.html" %}
+
+{% block title %}Главная{% endblock %}
+
+{% block content %}
+
+<!-- Header -->
+<header class="ios-header">
+    <div style="display: flex; align-items: center; gap: 8px;">
+        <i class="ph ph-warehouse" style="color: #007aff; font-size: 28px;"></i>
+        <div>
+            <h1 style="font-size: 22px; line-height: 1.2;">Склад</h1>
+            <div class="header-sub" style="margin-top: 0;">{{ user_name }} · {{ user_role_display }}</div>
+        </div>
+    </div>
+    <div style="display: flex; gap: 12px; align-items: center;">
+        <button onclick="location.href='/mobile/my_transactions?user_id={{ user_id }}&user_role={{ user_role }}&user_name={{ user_name | urlencode }}'" style="background: none; border: none; font-size: 24px; cursor: pointer; padding: 4px; display: flex; align-items: center; justify-content: center;">
+            <i class="ph ph-clock" style="color: #8e8e93; font-size: 24px;"></i>
+        </button>
+        <div style="text-align: right;">
+            <div id="liveTime" style="font-size: 15px; font-weight: 600;">--:--</div>
+            <div style="font-size: 11px; color: #888;">сегодня</div>
+        </div>
+    </div>
+</header>
+
+<div class="scroll-content">
+
+    <!-- Firebase статус (мини) -->
+    <div style="display: flex; align-items: center; gap: 8px; padding: 8px 14px; background: #e8f5e9; border-radius: 10px; margin-bottom: 16px; font-size: 12px; color: #2e7d32; border: 1px solid #c8e6c9;">
+        <i class="ph ph-database" style="font-size: 16px;"></i>
+        <span>Склад: {{ warehouse }}</span>
+    </div>
+
+    <!-- Крупные кнопки быстрых действий для ролей -->
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 20px;">
+        <div onclick="location.href='/mobile/scan?user_id={{ user_id }}&user_role={{ user_role }}&user_name={{ user_name | urlencode }}'" style="background: linear-gradient(135deg, #007aff, #0056d6); border-radius: 16px; padding: 20px; color: white; cursor: pointer; display: flex; flex-direction: column; gap: 4px; box-shadow: 0 4px 10px rgba(0,122,255,0.15);">
+            <i class="ph ph-qr-code" style="font-size: 32px; color: white;"></i>
+            <div style="font-size: 18px; font-weight: 700; margin-top: 4px;">Сканировать</div>
+            <div style="font-size: 13px; opacity: 0.8;">Наведите на QR-код</div>
+        </div>
+        <div onclick="location.href='/mobile/parts_list?user_id={{ user_id }}&user_role={{ user_role }}&user_name={{ user_name | urlencode }}'" style="background: linear-gradient(135deg, #34c759, #28a745); border-radius: 16px; padding: 20px; color: white; cursor: pointer; display: flex; flex-direction: column; gap: 4px; box-shadow: 0 4px 10px rgba(52,199,89,0.15);">
+            <i class="ph ph-package" style="font-size: 32px; color: white;"></i>
+            <div style="font-size: 18px; font-weight: 700; margin-top: 4px;">Каталог</div>
+            <div style="font-size: 13px; opacity: 0.8;">Найти запчасть</div>
+        </div>
+    </div>
+
+    <!-- Статистика (адаптивно) -->
+    <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin-bottom: 20px;">
+        <div style="background: white; border-radius: 14px; padding: 16px; box-shadow: 0 2px 8px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);">
+            <div id="totalItems" style="font-size: 28px; font-weight: 800;">{{ total_items }}</div>
+            <div style="font-size: 13px; color: #888;">товаров на складе</div>
+        </div>
+        <div style="background: white; border-radius: 14px; padding: 16px; box-shadow: 0 2px 8px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);">
+            <div id="activeOrders" style="font-size: 28px; font-weight: 800; color: #ff9500;">{{ active_orders_count }}</div>
+            <div style="font-size: 13px; color: #888;">активных заказов</div>
+        </div>
+        <div style="background: white; border-radius: 14px; padding: 16px; box-shadow: 0 2px 8px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);">
+            <div id="lowStockCount" style="font-size: 28px; font-weight: 800; color: #ff3b30;">{{ low_stock_count }}</div>
+            <div style="font-size: 13px; color: #888;">мало на складе</div>
+        </div>
+        <div style="background: white; border-radius: 14px; padding: 16px; box-shadow: 0 2px 8px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);">
+            <div id="todayOperations" style="font-size: 28px; font-weight: 800; color: #34c759;">{{ today_operations }}</div>
+            <div style="font-size: 13px; color: #888;">операций сегодня</div>
+        </div>
+    </div>
+
+    <!-- Часто берёмые (карусель) -->
+    <div style="margin-bottom: 16px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+            <div style="font-size: 17px; font-weight: 600; display: flex; align-items: center; gap: 4px;">
+                <i class="ph ph-fire" style="color: #ff9500; font-size: 20px;"></i>
+                <span>Часто берут</span>
+            </div>
+            <a href="/mobile/parts_list?user_id={{ user_id }}&user_role={{ user_role }}&user_name={{ user_name | urlencode }}" style="font-size: 14px; color: #007aff; text-decoration: none;">Все</a>
+        </div>
+        <div class="carousel">
+            {% if catalog %}
+                {% for item in catalog %}
+                <div class="carousel-item" onclick="location.href='/mobile/take_part?id={{ item.id }}&user_id={{ user_id }}&user_role={{ user_role }}&user_name={{ user_name | urlencode }}'">
+                    <div style="height: 100px; background: #f5f5f5; display: flex; align-items: center; justify-content: center; overflow: hidden;">
+                        {% if item.imageUrl %}
+                        <img src="{{ item.imageUrl }}" style="width: 100%; height: 100%; object-fit: contain; padding: 12px;" loading="lazy" onerror="this.style.display='none';this.parentElement.innerHTML='<i class=\'ph ph-package\' style=\'font-size: 36px; color: #ccc;\'></i>'">
+                        {% else %}
+                        <i class="ph ph-package" style="font-size: 36px; color: #ccc;"></i>
+                        {% endif %}
+                    </div>
+                    <div style="padding: 10px;">
+                        <div style="font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{ item.name }}</div>
+                        <div style="font-size: 11px; color: #888;">{{ item.sku }}</div>
+                        <div style="font-size: 14px; font-weight: 700; color: #007aff; margin-top: 2px;">{{ item.stock }} {{ item.unit or 'шт' }}</div>
+                    </div>
+                </div>
+                {% endfor %}
+            {% else %}
+                <div style="padding: 20px; text-align: center; color: #888; font-size: 14px;">Нет популярных товаров</div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Новости склада -->
+    <div class="ios-card" style="margin-bottom: 16px;">
+        <div class="ios-card-header">
+            <span class="title" style="display: flex; align-items: center; gap: 6px;">
+                <i class="ph ph-megaphone" style="color: #ff3b30; font-size: 18px;"></i>
+                <span>Новости склада</span>
+            </span>
+        </div>
+        <div class="ios-card-body" style="padding: 10px 16px;" id="newsEntries">
+            {% if news %}
+                {% for item in news %}
+                <div style="padding: 10px 0; {% if not loop.last %}border-bottom: 1px solid #f2f2f7;{% endif %}">
+                    <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; margin-bottom: 4px;">
+                        <span style="font-weight: 600; font-size: 14px; color: #1c1c1e; word-break: break-word;">{{ item.title }}</span>
+                        
+                        {% if item.tag == 'URGENT' %}
+                        <span style="font-size: 10px; font-weight: 700; background: #ffebeb; color: #ff3b30; padding: 2px 6px; border-radius: 6px; text-transform: uppercase; border: 1px solid #ffd1d1; flex-shrink: 0;">Срочно</span>
+                        {% elif item.tag == 'TODAY' %}
+                        <span style="font-size: 10px; font-weight: 700; background: #e8f2ff; color: #007aff; padding: 2px 6px; border-radius: 6px; text-transform: uppercase; border: 1px solid #d0e3ff; flex-shrink: 0;">Сегодня</span>
+                        {% elif item.tag == 'TOMORROW' %}
+                        <span style="font-size: 10px; font-weight: 700; background: #eafaf1; color: #34c759; padding: 2px 6px; border-radius: 6px; text-transform: uppercase; border: 1px solid #d1f7e0; flex-shrink: 0;">Завтра</span>
+                        {% else %}
+                        <span style="font-size: 10px; font-weight: 700; background: #f2f2f7; color: #8e8e93; padding: 2px 6px; border-radius: 6px; text-transform: uppercase; border: 1px solid #e5e5ea; flex-shrink: 0;">Общее</span>
+                        {% endif %}
+                    </div>
+                    <div style="font-size: 13px; color: #3a3a3c; line-height: 1.4; white-space: pre-wrap; word-break: break-word;">{{ item.content }}</div>
+                </div>
+                {% endfor %}
+            {% else %}
+                <div style="padding: 16px; text-align: center; color: #888; font-size: 13px;">
+                    <i class="ph ph-chat-circle" style="font-size: 28px; opacity: 0.3; display: block; margin: 0 auto 6px;"></i>
+                    <span>Нет важных новостей</span>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Последние операции -->
+    <div class="ios-card">
+        <div class="ios-card-header">
+            <span class="title" style="display: flex; align-items: center; gap: 6px;">
+                <i class="ph ph-clock-counter-clockwise" style="color: #007aff; font-size: 18px;"></i>
+                <span>Последние операции</span>
+            </span>
+            <a href="/mobile/my_transactions?user_id={{ user_id }}&user_role={{ user_role }}&user_name={{ user_name | urlencode }}" class="link">Все</a>
+        </div>
+        <div class="ios-card-body" style="padding: 0;" id="logEntries">
+            {% if recent_logs %}
+                {% for log in recent_logs %}
+                <div class="ios-list-item">
+                    <div style="width: 36px; height: 36px; border-radius: 50%; 
+                        {% if log.action == 'Взял' %}background: #fef2f2; color: #ff3b30;
+                        {% else %}background: #f0fdf4; color: #34c759;{% endif %}
+                        display: flex; align-items: center; justify-content: center; flex-shrink: 0; font-size: 18px;">
+                        {% if log.action == 'Взял' %}
+                            <i class="ph ph-arrow-up-right"></i>
+                        {% else %}
+                            <i class="ph ph-arrow-down-left"></i>
+                        {% endif %}
+                    </div>
+                    <div style="flex: 1; min-width: 0;">
+                        <div style="font-size: 14px;">
+                            <span style="font-weight: 600;">{{ log.user_name }}</span>
+                            {% if log.action == 'Взял' %}взял{% else %}добавил{% endif %}
+                            <span style="font-weight: 500;">{{ log.item_name }}</span>
+                        </div>
+                        <div style="font-size: 12px; color: #888;">{{ log.quantity }} шт · {{ log.time }}</div>
+                    </div>
+                </div>
+                {% endfor %}
+            {% else %}
+                <div style="padding: 24px; text-align: center; color: #888; font-size: 14px;">
+                    <i class="ph ph-clock-counter-clockwise" style="font-size: 32px; opacity: 0.3; display: block; margin: 0 auto 8px;"></i>
+                    <p>Нет операций</p>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+
+</div>
+
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+    // Часы
+    function updateClock() {
+        const now = new Date();
+        document.getElementById('liveTime').textContent = 
+            now.toLocaleTimeString('ru', { hour: '2-digit', minute: '2-digit' });
+    }
+    updateClock();
+    setInterval(updateClock, 30000);
+
+    // Обновление дашборда каждые 30 сек
+    let refreshTimer;
+    async function refreshDashboard() {
+        try {
+            const res = await fetch('/api/warehouse/dashboard-summary');
+            const summary = await res.json();
+
+            // Обновить если элементы есть на странице
+            const el = (id) => document.getElementById(id);
+            if (el('totalItems')) el('totalItems').textContent = summary.totalItems;
+            if (el('activeOrders')) el('activeOrders').textContent = summary.activeOrdersCount;
+            if (el('lowStockCount')) el('lowStockCount').textContent = summary.lowStockCount;
+            if (el('todayOperations')) el('todayOperations').textContent = summary.todayOperationsCount;
+
+            // Логи
+            const logContainer = document.getElementById('logEntries');
+            if (logContainer && summary.recentLogs && summary.recentLogs.length > 0) {
+                logContainer.innerHTML = summary.recentLogs.map(log => {
+                    const qty = log.quantityChange || 0;
+                    const color = qty < 0 ? '#ff3b30' : '#34c759';
+                    const bg = qty < 0 ? '#fef2f2' : '#f0fdf4';
+                    const iconClass = qty < 0 ? 'ph ph-arrow-up-right' : 'ph ph-arrow-down-left';
+                    const ts = log.timestamp ? new Date(log.timestamp) : new Date();
+                    const time = ts.toLocaleTimeString('ru', {hour:'2-digit', minute:'2-digit'});
+                    return `
+                        <div class="ios-list-item">
+                            <div style="width:36px;height:36px;border-radius:50%;background:${bg};color:${color};display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:18px;">
+                                <i class="${iconClass}"></i>
+                            </div>
+                            <div style="flex:1;min-width:0;">
+                                <div style="font-size:14px;">
+                                    <span style="font-weight:600;">${log.userName || ''}</span>
+                                    ${qty < 0 ? 'взял' : 'добавил'}
+                                    <span style="font-weight:500;">${log.itemName || ''}</span>
+                                </div>
+                                <div style="font-size:12px;color:#888;">${Math.abs(qty)} шт · ${time}</div>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+            }
+
+            // Новости
+            const newsRes = await fetch('/api/warehouse/news');
+            if (newsRes.ok) {
+                const newsList = await newsRes.json();
+                const newsContainer = document.getElementById('newsEntries');
+                if (newsContainer) {
+                    if (newsList.length === 0) {
+                        newsContainer.innerHTML = `
+                            <div style="padding: 16px; text-align: center; color: #888; font-size: 13px;">
+                                <i class="ph ph-chat-circle" style="font-size: 28px; opacity: 0.3; display: block; margin: 0 auto 6px;"></i>
+                                <span>Нет важных новостей</span>
+                            </div>
+                        `;
+                    } else {
+                        newsContainer.innerHTML = newsList.map((item, idx, arr) => {
+                            let badgeHtml = '';
+                            if (item.tag === 'URGENT') {
+                                badgeHtml = `<span style="font-size: 10px; font-weight: 700; background: #ffebeb; color: #ff3b30; padding: 2px 6px; border-radius: 6px; text-transform: uppercase; border: 1px solid #ffd1d1; flex-shrink: 0;">Срочно</span>`;
+                            } else if (item.tag === 'TODAY') {
+                                badgeHtml = `<span style="font-size: 10px; font-weight: 700; background: #e8f2ff; color: #007aff; padding: 2px 6px; border-radius: 6px; text-transform: uppercase; border: 1px solid #d0e3ff; flex-shrink: 0;">Сегодня</span>`;
+                            } else if (item.tag === 'TOMORROW') {
+                                badgeHtml = `<span style="font-size: 10px; font-weight: 700; background: #eafaf1; color: #34c759; padding: 2px 6px; border-radius: 6px; text-transform: uppercase; border: 1px solid #d1f7e0; flex-shrink: 0;">Завтра</span>`;
+                            } else {
+                                badgeHtml = `<span style="font-size: 10px; font-weight: 700; background: #f2f2f7; color: #8e8e93; padding: 2px 6px; border-radius: 6px; text-transform: uppercase; border: 1px solid #e5e5ea; flex-shrink: 0;">Общее</span>`;
+                            }
+                            
+                            const isLast = idx === arr.length - 1;
+                            const borderStyle = isLast ? '' : 'border-bottom: 1px solid #f2f2f7;';
+                            
+                            return `
+                                <div style="padding: 10px 0; ${borderStyle}">
+                                    <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; margin-bottom: 4px;">
+                                        <span style="font-weight: 600; font-size: 14px; color: #1c1c1e; word-break: break-word;">${item.title}</span>
+                                        ${badgeHtml}
+                                    </div>
+                                    <div style="font-size: 13px; color: #3a3a3c; line-height: 1.4; white-space: pre-wrap; word-break: break-word;">${item.content}</div>
+                                </div>
+                            `;
+                        }).join('');
+                    }
+                }
+            }
+        } catch(e) { console.error('refresh err', e); }
+    }
+    refreshTimer = setInterval(refreshDashboard, 30000);
+    window.addEventListener('beforeunload', () => clearInterval(refreshTimer));
+</script>
+{% endblock %}

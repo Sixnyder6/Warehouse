@@ -1,0 +1,1164 @@
+{% extends "base/desktop_base.html" %}
+
+{% block title %}История операций{% endblock %}
+
+{% block content %}
+<style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Outfit:wght@300;400;500;600;700;800&display=swap');
+
+    .history-page-wrapper {
+        font-family: 'Outfit', 'Inter', sans-serif;
+    }
+
+    /* Премиальные стили для фильтров и таблиц */
+    .filter-select, .filter-date {
+        padding: 10px 14px;
+        border: 1px solid #e2e8f0;
+        border-radius: 12px;
+        font-size: 13px;
+        font-weight: 500;
+        background: #f8fafc;
+        color: #1e293b;
+        outline: none;
+        transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        cursor: pointer;
+        box-shadow: 0 1px 2px rgba(0,0,0,0.02);
+    }
+    .filter-select:hover, .filter-date:hover {
+        border-color: #cbd5e1;
+        background: #f1f5f9;
+    }
+    .filter-select:focus, .filter-date:focus {
+        border-color: var(--primary);
+        background: white;
+        box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.1);
+    }
+
+    /* Сегментированный переключатель табов */
+    .segmented-control {
+        display: inline-flex;
+        background: #f1f5f9;
+        padding: 4px;
+        border-radius: 12px;
+        gap: 4px;
+    }
+    .segmented-btn {
+        padding: 8px 18px;
+        font-size: 13px;
+        font-weight: 600;
+        border: none;
+        border-radius: 9px;
+        cursor: pointer;
+        background: transparent;
+        color: #64748b;
+        transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        display: flex;
+        align-items: center;
+        gap: 6px;
+    }
+    .segmented-btn.active {
+        background: white;
+        color: var(--primary);
+        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05), 0 1px 2px rgba(0, 0, 0, 0.02);
+    }
+    .segmented-btn:hover:not(.active) {
+        color: var(--text-main);
+        background: rgba(255, 255, 255, 0.5);
+    }
+
+    /* Таблицы */
+    .history-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 13px;
+    }
+    .history-table th {
+        padding: 14px 20px;
+        font-weight: 600;
+        color: #475569;
+        border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+        background: #f8fafc;
+        text-align: left;
+        text-transform: uppercase;
+        font-size: 11px;
+        letter-spacing: 0.5px;
+    }
+    .history-table td {
+        padding: 16px 20px;
+        border-bottom: 1px solid #f1f5f9;
+        vertical-align: middle;
+        color: #334155;
+        transition: background 0.15s ease;
+    }
+    .clickable-row:hover td {
+        background-color: rgba(37, 99, 235, 0.02);
+    }
+
+    /* Таймлайн карточка для группировки */
+    .timeline-card {
+        background: white;
+        border: 1px solid rgba(0,0,0,0.05);
+        border-left: 4px solid var(--primary);
+        border-radius: 16px;
+        padding: 20px;
+        margin-bottom: 16px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.01);
+        transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+        position: relative;
+    }
+    .timeline-card:hover {
+        border-color: var(--primary);
+        box-shadow: 0 10px 20px rgba(0,0,0,0.03);
+        transform: translateY(-2px);
+    }
+    .timeline-avatar {
+        width: 32px;
+        height: 32px;
+        border-radius: 8px;
+        background: linear-gradient(135deg, var(--primary), #1d4ed8);
+        color: white;
+        font-weight: 700;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 13px;
+        box-shadow: 0 2px 4px rgba(37, 99, 235, 0.15);
+    }
+    .stat-card {
+        background: white;
+        border-radius: 16px;
+        padding: 20px 24px;
+        min-width: 180px;
+        flex: 1;
+        display: flex;
+        align-items: center;
+        gap: 18px;
+        border: 1px solid rgba(0, 0, 0, 0.04);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.02);
+        transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    .stat-card:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 10px 20px rgba(0, 0, 0, 0.05);
+    }
+    .stat-card-icon {
+        width: 52px;
+        height: 52px;
+        border-radius: 14px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 24px;
+        font-weight: 700;
+        transition: all 0.2s;
+    }
+</style>
+
+<div class="history-page-wrapper">
+    <!-- Шапка страницы -->
+    <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 24px; flex-wrap: wrap; gap: 16px;">
+        <div>
+            <h1 style="font-size: 28px; font-weight: 800; color: var(--text-main); margin: 0; letter-spacing: -0.5px;">История операций</h1>
+            <p style="color: var(--text-muted); font-size: 14px; margin: 6px 0 0 0; display: flex; align-items: center; gap: 6px;">
+                <i class="ph ph-clock-counter-clockwise" style="font-size: 16px;"></i> Полный журнал действий сотрудников на складе
+            </p>
+        </div>
+        <!-- Выбранный период -->
+        <div style="display: flex; align-items: center; gap: 8px; background: rgba(37, 99, 235, 0.04); border: 1px solid rgba(37, 99, 235, 0.12); border-radius: 12px; padding: 10px 16px; box-shadow: 0 1px 2px rgba(0,0,0,0.02); transition: all 0.2s ease;" onmouseover="this.style.background='rgba(37, 99, 235, 0.08)'" onmouseout="this.style.background='rgba(37, 99, 235, 0.04)'">
+            <i class="ph ph-calendar" style="color: var(--primary); font-size: 18px;"></i>
+            <span id="periodLabel" style="font-size: 13px; color: var(--primary); font-weight: 700;">Период не выбран</span>
+        </div>
+    </div>
+
+    <!-- Фильтры -->
+    <div class="card" style="margin-bottom: 24px;">
+        <div class="card-body" style="display: flex; gap: 16px; align-items: center; flex-wrap: wrap; padding: 20px 24px;">
+            <div style="display: flex; align-items: center; gap: 8px;">
+                <span style="font-size: 13px; font-weight: 600; color: var(--text-main); display: flex; align-items: center; gap: 6px;">
+                    <i class="ph ph-user" style="color: var(--text-muted); font-size: 16px;"></i> Сотрудник:
+                </span>
+                <select id="employeeFilter" class="filter-select">
+                    <option value="">Все сотрудники</option>
+                    {% for emp in employees_list %}
+                    <option value="{{ emp }}">{{ emp }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div style="display: flex; align-items: center; gap: 8px;">
+                <span style="font-size: 13px; font-weight: 600; color: var(--text-main); display: flex; align-items: center; gap: 6px;">
+                    <i class="ph ph-calendar-blank" style="color: var(--text-muted); font-size: 16px;"></i> Дата с:
+                </span>
+                <input type="date" id="dateFrom" class="filter-date" />
+            </div>
+            <div style="display: flex; align-items: center; gap: 8px;">
+                <span style="font-size: 13px; font-weight: 600; color: var(--text-main);">по:</span>
+                <input type="date" id="dateTo" class="filter-date" />
+            </div>
+            <button id="applyFilters" class="btn btn-primary" style="padding: 10px 20px; border-radius: 12px; font-weight: 600; font-size: 13px; height: 38px; display: flex; align-items: center; gap: 6px;">
+                <i class="ph ph-funnel" style="font-size: 16px;"></i> Применить
+            </button>
+            <button id="exportCsv" class="btn btn-outline" style="padding: 10px 20px; border-radius: 12px; font-weight: 600; font-size: 13px; height: 38px; display: flex; align-items: center; gap: 6px; margin-left: auto;">
+                <i class="ph ph-download-simple" style="font-size: 16px;"></i> Экспорт CSV
+            </button>
+        </div>
+    </div>
+
+    <!-- График активности -->
+    <div class="card" style="margin-bottom: 24px;">
+        <div class="card-header">
+            <span class="card-title">
+                <i class="ph ph-chart-line" style="color: var(--primary); font-size: 18px;"></i> Активность по дням
+            </span>
+        </div>
+        <div class="card-body" style="height: 260px; padding: 24px;">
+            <canvas id="historyChart"></canvas>
+        </div>
+    </div>
+
+    <!-- Вкладки: Таблица / Группировка / Сводка -->
+    <div class="card">
+        <div class="card-header">
+            <span class="card-title">
+                <i class="ph ph-list" style="color: var(--primary); font-size: 18px;"></i> Детализация
+            </span>
+            <!-- Сегментированный переключатель -->
+            <div class="segmented-control">
+                <button id="tabTable" class="segmented-btn active">
+                    <i class="ph ph-table" style="font-size: 16px;"></i> Таблица
+                </button>
+                <button id="tabGrouped" class="segmented-btn">
+                    <i class="ph ph-stack" style="font-size: 16px;"></i> Группировка
+                </button>
+                <button id="tabSummary" class="segmented-btn">
+                    <i class="ph ph-chart-bar" style="font-size: 16px;"></i> Сводка
+                </button>
+            </div>
+        </div>
+
+        <!-- Таблица -->
+        <div id="tableContainer" class="card-body" style="overflow-x: auto; padding: 0;">
+            <!-- Быстрый поиск -->
+            <div style="padding: 16px 24px; border-bottom: 1px solid rgba(0, 0, 0, 0.05); display: flex; align-items: center; justify-content: space-between; gap: 16px; background: #fafafa; flex-wrap: wrap;">
+                <div style="position: relative; flex: 1; max-width: 400px; min-width: 250px;">
+                    <i class="ph ph-magnifying-glass" style="position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: var(--text-muted); font-size: 16px;"></i>
+                    <input type="text" id="tableQuickSearch" placeholder="Быстрый поиск по сотруднику или товару..." 
+                           style="width: 100%; padding: 10px 14px 10px 40px; border: 1px solid var(--border); border-radius: 12px; font-size: 13px; outline: none; transition: all 0.2s; background: white; font-family: inherit; font-weight: 500;"
+                           oninput="onSearchInput(this.value)">
+                </div>
+                <div id="searchStats" style="font-size: 12px; color: var(--text-muted); font-weight: 600; background: white; border: 1px solid var(--border); border-radius: 8px; padding: 6px 12px; box-shadow: 0 1px 2px rgba(0,0,0,0.01);">
+                    Всего записей: <span id="totalLogsCount" style="color: var(--primary);">0</span>
+                </div>
+            </div>
+
+            <table class="history-table" id="historyTable">
+                <thead>
+                    <tr>
+                        <th style="width: 60px;">#</th>
+                        <th>Сотрудник</th>
+                        <th>Товар</th>
+                        <th>Количество</th>
+                        <th>Действие</th>
+                        <th>Время операции</th>
+                    </tr>
+                </thead>
+                <tbody id="tableBody">
+                    <!-- Заполняется JS -->
+                </tbody>
+            </table>
+            <div id="paginationControls" style="display: flex; gap: 6px; justify-content: center; padding: 20px; border-top: 1px solid rgba(0, 0, 0, 0.05);"></div>
+        </div>
+
+        <!-- Группировка -->
+        <div id="groupedContainer" class="card-body" style="display: none; padding: 24px;">
+            <div id="groupedList" style="display: flex; flex-direction: column; gap: 12px;">
+                <!-- Заполняется JS -->
+            </div>
+        </div>
+
+        <!-- Сводка -->
+        <div id="summaryContainer" class="card-body" style="display: none; padding: 24px;">
+            <!-- Общая статистика сверху -->
+            <div id="summaryStats" style="display: flex; gap: 16px; margin-bottom: 24px; flex-wrap: wrap;"></div>
+
+            <!-- График топ-товаров -->
+            <div style="margin-bottom: 28px;">
+                <h4 style="font-size: 15px; font-weight: 700; margin-bottom: 14px; display: flex; align-items: center; gap: 8px; color: var(--text-main);">
+                    <i class="ph ph-chart-bar" style="color: var(--primary);"></i> Топ востребованных товаров
+                </h4>
+                <div style="height: 320px; background: #fafafa; border: 1px solid rgba(0,0,0,0.05); border-radius: 16px; padding: 18px;">
+                    <canvas id="summaryChart"></canvas>
+                </div>
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1.2fr 1fr; gap: 24px;">
+                <!-- Таблица по сотрудникам -->
+                <div>
+                    <h4 style="font-size: 15px; font-weight: 700; margin-bottom: 14px; display: flex; align-items: center; gap: 8px; color: var(--text-main);">
+                        <i class="ph ph-users" style="color: var(--primary);"></i> Распределение по сотрудникам
+                    </h4>
+                    <div style="overflow-x: auto; border: 1px solid rgba(0,0,0,0.05); border-radius: 16px; box-shadow: 0 2px 8px rgba(0,0,0,0.01);">
+                        <table id="summaryEmployeeTable" class="history-table">
+                            <thead>
+                                <tr style="background: #fafafa;">
+                                    <th>Сотрудник</th>
+                                    <th>Операции по товарам</th>
+                                    <th style="width: 140px;">Всего взято</th>
+                                </tr>
+                            </thead>
+                            <tbody id="summaryEmployeeBody"></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Общая сводка по товарам -->
+                <div>
+                    <h4 style="font-size: 15px; font-weight: 700; margin-bottom: 14px; display: flex; align-items: center; gap: 8px; color: var(--text-main);">
+                        <i class="ph ph-package" style="color: var(--primary);"></i> Общая доля по товарам
+                    </h4>
+                    <div style="overflow-x: auto; border: 1px solid rgba(0,0,0,0.05); border-radius: 16px; box-shadow: 0 2px 8px rgba(0,0,0,0.01);">
+                        <table id="summaryTotalsTable" class="history-table">
+                            <thead>
+                                <tr style="background: #fafafa;">
+                                    <th style="width: 50px;">#</th>
+                                    <th>Товар</th>
+                                    <th style="width: 120px;">Количество</th>
+                                    <th>Доля от общего</th>
+                                </tr>
+                            </thead>
+                            <tbody id="summaryTotalsBody"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Модальное окно для деталей -->
+<div id="detailModal" class="modal-overlay" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(15, 23, 42, 0.4); backdrop-filter: blur(12px) saturate(190%); z-index: 1000; justify-content: center; align-items: center;">
+    <div style="background: white; border-radius: 24px; padding: 32px; max-width: 480px; width: 90vw; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.15); border: 1px solid rgba(255,255,255,0.8); position: relative; display: flex; flex-direction: column; gap: 20px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #f1f5f9; padding-bottom: 14px;">
+            <h3 style="margin: 0; font-size: 18px; font-weight: 800; color: var(--text-main); display: flex; align-items: center; gap: 8px;">
+                <i class="ph ph-info" style="color: var(--primary); font-size: 20px;"></i> Детали операции
+            </h3>
+            <button id="modalClose" style="background: none; border: none; font-size: 24px; cursor: pointer; color: var(--text-muted); line-height: 1; transition: color 0.2s;" onmouseover="this.style.color='var(--text-main)'" onmouseout="this.style.color='var(--text-muted)'">&times;</button>
+        </div>
+        <div id="detailBody" style="padding: 4px 0;"><!-- Заполняется JS --></div>
+        <button onclick="document.getElementById('detailModal').style.display='none'" class="btn btn-outline" style="width: 100%; padding: 12px; border-radius: 12px; font-weight: 700; font-size: 14px; margin-top: 8px; border-color: #cbd5e1;">Закрыть</button>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+// ==========================================
+// ДАННЫЕ ИЗ СЕРВЕРА И ЛОКАЛЬНОГО КЭША
+// ==========================================
+
+var cachedLogsData = [];
+var cachedGroupedData = [];
+try {
+    cachedLogsData = JSON.parse(localStorage.getItem('history_logs') || '[]');
+    cachedGroupedData = JSON.parse(localStorage.getItem('history_grouped') || '[]');
+} catch (e) {
+    console.warn("Ошибка чтения кэша истории:", e);
+}
+
+var currentLogs = cachedLogsData;
+var currentView = 'table';  // 'table', 'grouped', 'summary'
+var currentPage = 1;
+var PAGE_SIZE = 15;
+
+var chart = null;
+var summaryChartInstance = null;
+var searchQuery = "";
+
+function updateEmployeesFilter(logs) {
+    const filter = document.getElementById('employeeFilter');
+    if (!filter) return;
+    const currentValue = filter.value;
+    
+    const employeesSet = new Set();
+    logs.forEach(log => {
+        const name = log.userName;
+        if (name) employeesSet.add(name);
+    });
+    
+    const sortedEmployees = Array.from(employeesSet).sort();
+    
+    let html = '<option value="">👤 Все сотрудники</option>';
+    sortedEmployees.forEach(emp => {
+        html += `<option value="${escapeHtml(emp)}" ${emp === currentValue ? 'selected' : ''}>${escapeHtml(emp)}</option>`;
+    });
+    filter.innerHTML = html;
+}
+
+async function fetchFreshHistory() {
+    try {
+        const dateFrom = document.getElementById('dateFrom').value;
+        const dateTo = document.getElementById('dateTo').value;
+        
+        let url = '/api/history?_=' + Date.now();
+        const params = [];
+        const employee = document.getElementById('employeeFilter')?.value || "";
+        if (employee) params.push(`employee=${encodeURIComponent(employee)}`);
+        if (dateFrom) params.push(`dateFrom=${dateFrom}`);
+        if (dateTo) params.push(`dateTo=${dateTo}`);
+        if (params.length) {
+            url += '&' + params.join('&');
+        }
+        
+        const [historyRes, groupedRes] = await Promise.all([
+            fetch(url),
+            fetch('/api/warehouse/logs/grouped')
+        ]);
+        
+        const historyData = await historyRes.json();
+        const groupedData = await groupedRes.json();
+        
+        currentLogs = historyData;
+        
+        // Рендерим по новой
+        updateEmployeesFilter(historyData);
+        renderTable();
+        renderChart(dateFrom, dateTo);
+        if (currentView === 'grouped') {
+            renderGrouped();
+        } else if (currentView === 'summary') {
+            loadSummary();
+        }
+        
+        // Сохраняем в кэш
+        localStorage.setItem('history_logs', JSON.stringify(historyData));
+        localStorage.setItem('history_grouped', JSON.stringify(groupedData));
+        
+    } catch(e) {
+        console.error("Ошибка фонового обновления истории:", e);
+    }
+}
+
+function initHistory() {
+    // Устанавливаем даты по умолчанию: начало месяца — сегодня
+    const today = new Date();
+    const firstOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+    
+    const fmt = (d) => {
+        const y = d.getFullYear();
+        const m = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        return `${y}-${m}-${day}`;
+    };
+    
+    document.getElementById('dateFrom').value = fmt(firstOfMonth);
+    document.getElementById('dateTo').value = fmt(today);
+    
+    // Сначала выводим из кэша
+    updateEmployeesFilter(currentLogs);
+    renderTable();
+    renderChart(fmt(firstOfMonth), fmt(today));
+    setupTabSwitching();
+    setupModal();
+    setupFilters();
+    setupExport();
+    setupNavActive();
+    updatePeriodLabel();
+    
+    // В фоне запрашиваем свежие
+    fetchFreshHistory();
+}
+
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initHistory);
+} else {
+    initHistory();
+}
+
+function setupNavActive() {
+    const links = document.querySelectorAll('.nav-link');
+    links.forEach(link => {
+        if (link.getAttribute('href').includes('/desktop/history')) {
+            link.classList.add('active');
+        }
+    });
+}
+
+// ==========================================
+// ТАБЛИЦА С ФИЛЬТРАЦИЕЙ И ПОИСКОМ
+// ==========================================
+
+function getFilteredLogs() {
+    if (!searchQuery) return currentLogs;
+    const q = searchQuery.toLowerCase();
+    return currentLogs.filter(log => {
+        const name = (log.userName || "").toLowerCase();
+        const item = (log.itemName || "").toLowerCase();
+        const notes = (log.notes || "").toLowerCase();
+        const issuer = (log.issuerName || "").toLowerCase();
+        const recipient = (log.recipientName || "").toLowerCase();
+        return name.includes(q) || item.includes(q) || notes.includes(q) || issuer.includes(q) || recipient.includes(q);
+    });
+}
+
+function onSearchInput(val) {
+    searchQuery = val.trim();
+    currentPage = 1;
+    renderTable();
+}
+
+function renderTable() {
+    const logsToRender = getFilteredLogs();
+    document.getElementById('totalLogsCount').textContent = logsToRender.length;
+
+    const start = (currentPage - 1) * PAGE_SIZE;
+    const end = start + PAGE_SIZE;
+    const pageLogs = logsToRender.slice(start, end);
+
+    const tbody = document.getElementById('tableBody');
+    if (pageLogs.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="6" style="text-align: center; padding: 48px; color: var(--text-muted); font-size: 14px;"><i class="ph ph-warning-circle" style="font-size: 24px; display: block; margin: 0 auto 8px; color: #94a3b8;"></i>Ничего не найдено</td></tr>`;
+        document.getElementById('paginationControls').innerHTML = '';
+        return;
+    }
+
+    tbody.innerHTML = pageLogs.map((log, idx) => {
+        const num = start + idx + 1;
+        const name = log.userName || '—';
+        const item = log.itemName || '—';
+        const quantity = Math.abs(log.quantityChange || 0);
+        const actionBadge = (log.quantityChange || 0) < 0
+            ? '<span class="db-badge db-badge-danger" style="font-size: 11px; font-weight: 700; background: var(--danger-bg); color: var(--danger); padding: 4px 10px; border-radius: 12px; display: inline-flex; align-items: center; gap: 4px;"><i class="ph ph-arrow-up-right"></i> Взял</span>'
+            : '<span class="db-badge db-badge-success" style="font-size: 11px; font-weight: 700; background: var(--success-bg); color: var(--success); padding: 4px 10px; border-radius: 12px; display: inline-flex; align-items: center; gap: 4px;"><i class="ph ph-arrow-down-left"></i> Добавил</span>';
+        const ts = log.timestamp ? new Date(log.timestamp).toLocaleString('ru') : '—';
+
+        return `
+            <tr class="clickable-row" style="cursor: pointer; transition: background 0.15s;">
+                <td style="color: #888; font-size: 12px;">${num}</td>
+                <td style="font-weight: 600; color: var(--text-main);">${escapeHtml(name)}</td>
+                <td style="font-weight: 500; color: var(--text-main);">${escapeHtml(item)}</td>
+                <td style="font-weight: 700; color: var(--text-main);">${quantity} шт.</td>
+                <td>${actionBadge}</td>
+                <td style="color: var(--text-muted); font-size: 12px;">${ts}</td>
+            </tr>
+        `;
+    }).join('');
+
+    const rows = tbody.querySelectorAll('.clickable-row');
+    rows.forEach((row, idx) => {
+        row.addEventListener('click', () => {
+            showDetail(pageLogs[idx]);
+        });
+    });
+
+    renderPagination();
+}
+
+function renderPagination() {
+    const logsToRender = getFilteredLogs();
+    const totalPages = Math.ceil(logsToRender.length / PAGE_SIZE);
+    const container = document.getElementById('paginationControls');
+    if (totalPages <= 1) {
+        container.innerHTML = '';
+        return;
+    }
+
+    let html = '';
+    for (let p = 1; p <= totalPages; p++) {
+        html += `<button onclick="goToPage(${p})" class="btn ${p === currentPage ? 'btn-primary' : 'btn-outline'}"
+                        style="padding: 8px 14px; font-size: 12px; min-width: 36px; border-radius: 10px; font-weight: 600; font-family: inherit;">${p}</button>`;
+    }
+    container.innerHTML = html;
+}
+
+function goToPage(page) {
+    currentPage = page;
+    renderTable();
+    document.getElementById('tableContainer').scrollIntoView({ behavior: 'smooth' });
+}
+
+// ==========================================
+// ГРУППИРОВКА (ДИНАМИЧЕСКИЙ КЛИЕНТСКИЙ РАСЧЕТ)
+// ==========================================
+
+function getGroupedActivities(logs) {
+    if (!logs || logs.length === 0) return [];
+    
+    // Сортируем по дате по убыванию
+    const sorted = [...logs].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+    
+    const parseTs = (entry) => {
+        return entry.timestamp ? new Date(entry.timestamp).getTime() / 1000 : 0;
+    };
+    
+    const grouped = [];
+    let currentGroup = [sorted[0]];
+    
+    for (let i = 1; i < sorted.length; i++) {
+        const current = sorted[i];
+        const lastInGroup = currentGroup[currentGroup.length - 1];
+        const timeDiff = parseTs(lastInGroup) - parseTs(current);
+        
+        if (current.userName !== lastInGroup.userName || timeDiff > 90) {
+            grouped.push({
+                userName: lastInGroup.userName,
+                timestamp: lastInGroup.timestamp,
+                items: currentGroup.map(log => ({
+                    itemName: log.itemName,
+                    quantity: log.quantityChange
+                }))
+            });
+            currentGroup = [current];
+        } else {
+            currentGroup.push(current);
+        }
+    }
+    
+    if (currentGroup.length > 0) {
+        const lastInGroup = currentGroup[currentGroup.length - 1];
+        grouped.push({
+            userName: lastInGroup.userName,
+            timestamp: lastInGroup.timestamp,
+            items: currentGroup.map(log => ({
+                itemName: log.itemName,
+                quantity: log.quantityChange
+            }))
+        });
+    }
+    
+    return grouped;
+}
+
+function renderGrouped() {
+    const container = document.getElementById('groupedList');
+    const grouped = getGroupedActivities(currentLogs);
+    if (grouped.length === 0) {
+        container.innerHTML = '<div style="text-align: center; padding: 48px; color: var(--text-muted); font-size: 14px;"><i class="ph ph-warning-circle" style="font-size: 24px; display: block; margin: 0 auto 8px; color: #94a3b8;"></i>Нет данных</div>';
+        return;
+    }
+
+    container.innerHTML = grouped.map(group => {
+        const ts = group.timestamp ? new Date(group.timestamp).toLocaleString('ru') : '—';
+        const itemsHtml = (group.items || []).map(it => {
+            const q = it.quantity || 0;
+            const badge = q < 0
+                ? `<span class="db-badge db-badge-danger" style="margin-right: 8px; font-size: 11px; font-weight: 700; background: var(--danger-bg); color: var(--danger); padding: 2px 8px; border-radius: 8px;"><i class="ph ph-arrow-up-right"></i> Взял ${Math.abs(q)} шт.</span>`
+                : `<span class="db-badge db-badge-success" style="margin-right: 8px; font-size: 11px; font-weight: 700; background: var(--success-bg); color: var(--success); padding: 2px 8px; border-radius: 8px;"><i class="ph ph-arrow-down-left"></i> Добавил ${Math.abs(q)} шт.</span>`;
+            return `
+                <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px;">
+                    ${badge}
+                    <span style="font-weight: 500; color: var(--text-main); font-size: 13px;">${escapeHtml(it.itemName || '—')}</span>
+                </div>
+            `;
+        }).join('');
+
+        const name = group.userName || 'Неизвестный';
+        const initials = name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
+
+        return `
+            <div class="timeline-card">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; border-bottom: 1px solid #f1f5f9; padding-bottom: 10px;">
+                    <span style="font-weight: 700; color: var(--text-main); font-size: 14px; display: flex; align-items: center; gap: 10px;">
+                        <div class="timeline-avatar">${initials}</div>
+                        ${escapeHtml(name)}
+                    </span>
+                    <span style="color: var(--text-muted); font-size: 12px; font-weight: 500; display: flex; align-items: center; gap: 4px;">
+                        <i class="ph ph-clock" style="font-size: 14px;"></i>
+                        ${ts}
+                    </span>
+                </div>
+                <div style="display: flex; flex-direction: column; gap: 4px; padding-left: 42px;">${itemsHtml}</div>
+            </div>
+        `;
+    }).join('');
+}
+
+function setupTabSwitching() {
+    const tabTable = document.getElementById('tabTable');
+    const tabGrouped = document.getElementById('tabGrouped');
+    const tabSummary = document.getElementById('tabSummary');
+    const tableContainer = document.getElementById('tableContainer');
+    const groupedContainer = document.getElementById('groupedContainer');
+    const summaryContainer = document.getElementById('summaryContainer');
+
+    function resetTabs() {
+        tabTable.classList.remove('active');
+        tabGrouped.classList.remove('active');
+        tabSummary.classList.remove('active');
+        tableContainer.style.display = 'none';
+        groupedContainer.style.display = 'none';
+        summaryContainer.style.display = 'none';
+    }
+
+    tabTable.addEventListener('click', () => {
+        currentView = 'table';
+        resetTabs();
+        tabTable.classList.add('active');
+        tableContainer.style.display = 'block';
+    });
+
+    tabGrouped.addEventListener('click', () => {
+        currentView = 'grouped';
+        resetTabs();
+        tabGrouped.classList.add('active');
+        groupedContainer.style.display = 'block';
+        renderGrouped();
+    });
+
+    tabSummary.addEventListener('click', () => {
+        currentView = 'summary';
+        resetTabs();
+        tabSummary.classList.add('active');
+        summaryContainer.style.display = 'block';
+        loadSummary();
+    });
+}
+
+// ==========================================
+// СВОДКА
+// ==========================================
+
+async function loadSummary() {
+    const employee = document.getElementById('employeeFilter').value;
+    const dateFrom = document.getElementById('dateFrom').value;
+    const dateTo = document.getElementById('dateTo').value;
+
+    let url = '/api/history/summary?_=' + Date.now();
+    const params = [];
+    if (employee) params.push(`employee=${encodeURIComponent(employee)}`);
+    if (dateFrom) params.push(`dateFrom=${dateFrom}`);
+    if (dateTo) params.push(`dateTo=${dateTo}`);
+    if (params.length) {
+        url += '&' + params.join('&');
+    }
+
+    try {
+        const resp = await fetch(url);
+        const data = await resp.json();
+
+        renderSummaryStats(data);
+        renderSummaryChart(data);
+        renderSummaryEmployeeTable(data);
+        renderSummaryTotalsTable(data);
+    } catch (e) {
+        console.error('Ошибка загрузки сводки:', e);
+        document.getElementById('summaryStats').innerHTML =
+            '<div style="color: #dc2626; padding: 16px;">Ошибка загрузки сводки</div>';
+    }
+}
+
+function renderSummaryStats(data) {
+    const container = document.getElementById('summaryStats');
+    const employeesCount = (data.perEmployee || []).length;
+    const itemsCount = (data.totals || []).length;
+    const grandTotal = data.grandTotal || 0;
+
+    container.innerHTML = `
+        <div class="stat-card">
+            <div class="stat-card-icon" style="background: rgba(37, 99, 235, 0.08); color: var(--primary);">
+                <i class="ph ph-hand-palm"></i>
+            </div>
+            <div>
+                <div style="font-size: 24px; font-weight: 800; color: #1e3a8a; line-height: 1.2;">${grandTotal.toLocaleString('ru')}</div>
+                <div style="font-size: 12px; color: var(--text-muted); margin-top: 2px; font-weight: 600;">Всего выдано</div>
+            </div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-card-icon" style="background: rgba(22, 163, 74, 0.08); color: #16a34a;">
+                <i class="ph ph-users"></i>
+            </div>
+            <div>
+                <div style="font-size: 24px; font-weight: 800; color: #064e3b; line-height: 1.2;">${employeesCount}</div>
+                <div style="font-size: 12px; color: var(--text-muted); margin-top: 2px; font-weight: 600;">Сотрудников</div>
+            </div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-card-icon" style="background: rgba(217, 119, 6, 0.08); color: #d97706;">
+                <i class="ph ph-package"></i>
+            </div>
+            <div>
+                <div style="font-size: 24px; font-weight: 800; color: #78350f; line-height: 1.2;">${itemsCount}</div>
+                <div style="font-size: 12px; color: var(--text-muted); margin-top: 2px; font-weight: 600;">Наименований товаров</div>
+            </div>
+        </div>
+    `;
+}
+
+function renderSummaryChart(data) {
+    const ctx = document.getElementById('summaryChart').getContext('2d');
+    if (summaryChartInstance) summaryChartInstance.destroy();
+
+    const totals = data.totals || [];
+    const topItems = totals.slice(0, 15).reverse();
+
+    const gradient = ctx.createLinearGradient(0, 0, 400, 0);
+    gradient.addColorStop(0, '#2563eb');
+    gradient.addColorStop(1, '#6366f1');
+
+    summaryChartInstance = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: topItems.map(i => i.itemName),
+            datasets: [{
+                label: 'Количество',
+                data: topItems.map(i => i.totalQuantity),
+                backgroundColor: gradient,
+                borderRadius: 8,
+                barThickness: 14,
+            }]
+        },
+        options: {
+            indexAxis: 'y',
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false }
+            },
+            scales: {
+                x: {
+                    beginAtZero: true,
+                    ticks: {
+                        stepSize: 1,
+                        font: { size: 11, weight: '600' }
+                    },
+                    grid: { color: '#f1f5f9' }
+                },
+                y: {
+                    grid: { display: false },
+                    ticks: { font: { size: 11, weight: '600' } }
+                }
+            }
+        }
+    });
+}
+
+function renderSummaryEmployeeTable(data) {
+    const tbody = document.getElementById('summaryEmployeeBody');
+    const employees = data.perEmployee || [];
+
+    if (employees.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="3" style="text-align: center; padding: 24px; color: #888;">Нет данных</td></tr>';
+        return;
+    }
+
+    tbody.innerHTML = employees.map(emp => {
+        const itemsHtml = emp.items.map(it =>
+            `<span style="display: inline-block; background: #f1f5f9; border: 1px solid var(--border); border-radius: 8px; padding: 4px 10px; margin: 3px; font-size: 12px; font-weight: 600; color: var(--text-main);">
+                ${escapeHtml(it.itemName)}: <strong style="color: var(--primary);">${it.totalQuantity}</strong>
+            </span>`
+        ).join('');
+
+        const totalTaken = emp.items.reduce((sum, it) => sum + it.totalQuantity, 0);
+
+        return `
+            <tr style="border-bottom: 1px solid #f1f5f9;">
+                <td style="padding: 14px 20px; font-weight: 700; color: var(--text-main);">${escapeHtml(emp.userName)}</td>
+                <td style="padding: 14px 20px;">${itemsHtml}</td>
+                <td style="padding: 14px 20px; font-weight: 800; color: #dc2626;">${totalTaken} шт.</td>
+            </tr>
+        `;
+    }).join('');
+}
+
+function renderSummaryTotalsTable(data) {
+    const tbody = document.getElementById('summaryTotalsBody');
+    const totals = data.totals || [];
+    const grandTotal = data.grandTotal || 1;
+
+    if (totals.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="4" style="text-align: center; padding: 24px; color: #888;">Нет данных</td></tr>';
+        return;
+    }
+
+    tbody.innerHTML = totals.map((item, idx) => {
+        const percent = ((item.totalQuantity / grandTotal) * 100).toFixed(1);
+        const barWidth = Math.max(2, percent);
+        return `
+            <tr style="border-bottom: 1px solid #f1f5f9;">
+                <td style="padding: 14px 20px; color: #888; font-size: 12px;">${idx + 1}</td>
+                <td style="padding: 14px 20px; font-weight: 700; color: var(--text-main);">${escapeHtml(item.itemName)}</td>
+                <td style="padding: 14px 20px; font-weight: 800; color: var(--text-main);">${item.totalQuantity.toLocaleString('ru')} шт.</td>
+                <td style="padding: 14px 20px;">
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <div style="flex: 1; height: 8px; background: #e2e8f0; border-radius: 4px; overflow: hidden;">
+                            <div style="height: 100%; width: ${barWidth}%; background: linear-gradient(90deg, var(--primary), #6366f1); border-radius: 4px;"></div>
+                        </div>
+                        <span style="font-size: 12px; color: var(--text-muted); min-width: 40px; font-weight: 700;">${percent}%</span>
+                    </div>
+                </td>
+            </tr>
+        `;
+    }).join('');
+}
+
+// ==========================================
+// ГРАФИК АКТИВНОСТИ
+// ==========================================
+
+async function renderChart(dateFrom = '', dateTo = '') {
+    try {
+        let url = '/api/history/stats?_=' + Date.now();
+        if (dateFrom) url += `&dateFrom=${dateFrom}`;
+        if (dateTo) url += `&dateTo=${dateTo}`;
+        
+        const resp = await fetch(url);
+        const stats = await resp.json();
+
+        const ctx = document.getElementById('historyChart').getContext('2d');
+        if (chart) chart.destroy();
+
+        // Создаем градиент для плавной заливки
+        const gradient = ctx.createLinearGradient(0, 0, 0, 220);
+        gradient.addColorStop(0, 'rgba(37, 99, 235, 0.3)');
+        gradient.addColorStop(0.5, 'rgba(99, 102, 241, 0.1)');
+        gradient.addColorStop(1, 'rgba(255, 255, 255, 0)');
+
+        chart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: (stats.dates || []).map(d => {
+                    const parts = d.split('-');
+                    return parts[2] + '.' + parts[1];
+                }),
+                datasets: [{
+                    label: 'Операций',
+                    data: stats.counts || [],
+                    borderColor: '#2563eb',
+                    borderWidth: 3,
+                    backgroundColor: gradient,
+                    fill: true,
+                    tension: 0.4,
+                    pointBackgroundColor: '#ffffff',
+                    pointBorderColor: '#2563eb',
+                    pointBorderWidth: 2.5,
+                    pointRadius: 4,
+                    pointHoverRadius: 6,
+                    pointHoverBorderWidth: 3,
+                    pointHoverBackgroundColor: '#ffffff',
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false }
+                },
+                scales: {
+                    x: {
+                        grid: { display: false },
+                        ticks: { font: { size: 11, weight: '600' }, color: '#64748b' }
+                    },
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            stepSize: 1,
+                            font: { size: 11, weight: '600' },
+                            color: '#64748b'
+                        },
+                        grid: { color: '#f1f5f9' }
+                    }
+                }
+            }
+        });
+    } catch (e) {
+        console.error('Ошибка графика:', e);
+    }
+}
+
+// ==========================================
+// ОТОБРАЖЕНИЕ ВЫБРАННОГО ПЕРИОДА
+// ==========================================
+
+function updatePeriodLabel() {
+    const dateFrom = document.getElementById('dateFrom').value;
+    const dateTo = document.getElementById('dateTo').value;
+    const employee = document.getElementById('employeeFilter').value;
+    
+    const fmt = (d) => {
+        if (!d) return '?';
+        const parts = d.split('-');
+        return `${parts[2]}.${parts[1]}.${parts[0]}`;
+    };
+    
+    let label = `${fmt(dateFrom)} — ${fmt(dateTo)}`;
+    if (employee) {
+        label += ` | 👤 ${employee}`;
+    }
+    
+    document.getElementById('periodLabel').textContent = label;
+}
+
+// ==========================================
+// ФИЛЬТРЫ
+// ==========================================
+
+function setupFilters() {
+    document.getElementById('applyFilters').addEventListener('click', async () => {
+        const employee = document.getElementById('employeeFilter').value;
+        const dateFrom = document.getElementById('dateFrom').value;
+        const dateTo = document.getElementById('dateTo').value;
+
+        // Обновляем отображение периода
+        updatePeriodLabel();
+
+        let url = '/api/history?_=' + Date.now();
+        const params = [];
+        if (employee) params.push(`employee=${encodeURIComponent(employee)}`);
+        if (dateFrom) params.push(`dateFrom=${dateFrom}`);
+        if (dateTo) params.push(`dateTo=${dateTo}`);
+        if (params.length) {
+            url += '&' + params.join('&');
+        }
+
+        try {
+            const resp = await fetch(url);
+            const data = await resp.json();
+            currentLogs = data;
+            currentPage = 1;
+            renderTable();
+
+            // Если открыта сводка, перезагружаем её
+            if (currentView === 'summary') {
+                loadSummary();
+            }
+            // Если открыта группировка, перезагружаем её
+            if (currentView === 'grouped') {
+                renderGrouped();
+            }
+            
+            // Обновляем график активности
+            renderChart(dateFrom, dateTo);
+        } catch (e) {
+            console.error('Ошибка фильтрации:', e);
+        }
+    });
+}
+
+// ==========================================
+// ДЕТАЛИ (модальное окно)
+// ==========================================
+
+function setupModal() {
+    const modal = document.getElementById('detailModal');
+    document.getElementById('modalClose').addEventListener('click', () => {
+        modal.style.display = 'none';
+    });
+    modal.addEventListener('click', (e) => {
+        if (e.target === modal) modal.style.display = 'none';
+    });
+}
+
+function showDetail(log) {
+    const modal = document.getElementById('detailModal');
+    const body = document.getElementById('detailBody');
+
+    const name = log.userName || '—';
+    const item = log.itemName || '—';
+    const quantity = Math.abs(log.quantityChange || 0);
+    const actionBadge = (log.quantityChange || 0) < 0
+        ? '<span class="db-badge db-badge-danger" style="background: var(--danger-bg); color: var(--danger); font-size: 11px; font-weight: 750; padding: 4px 10px; border-radius: 12px;"><i class="ph ph-arrow-up-right"></i> Взял</span>'
+        : '<span class="db-badge db-badge-success" style="background: var(--success-bg); color: var(--success); font-size: 11px; font-weight: 750; padding: 4px 10px; border-radius: 12px;"><i class="ph ph-arrow-down-left"></i> Добавил</span>';
+    const ts = log.timestamp ? new Date(log.timestamp).toLocaleString('ru') : '—';
+    const userId = log.userId || '—';
+
+    // Дополнительные данные, если есть расширенная выдача
+    const issuerHtml = log.issuerName ? `
+        <div style="display: flex; justify-content: space-between; border-bottom: 1px solid #f1f5f9; padding-bottom: 10px; align-items: center;">
+            <span style="color: var(--text-muted); font-weight: 600; font-size: 13px;">Кладовщик (выдал):</span>
+            <span style="font-weight: 700; color: var(--text-main); font-size: 13.5px;">${escapeHtml(log.issuerName)}</span>
+        </div>
+    ` : '';
+
+    const recipientHtml = log.recipientName ? `
+        <div style="display: flex; justify-content: space-between; border-bottom: 1px solid #f1f5f9; padding-bottom: 10px; align-items: center;">
+            <span style="color: var(--text-muted); font-weight: 600; font-size: 13px;">Получатель:</span>
+            <span style="font-weight: 700; color: var(--text-main); font-size: 13.5px;">${escapeHtml(log.recipientName)}</span>
+        </div>
+    ` : '';
+
+    const notesHtml = log.notes ? `
+        <div style="display: flex; flex-direction: column; gap: 6px; border-bottom: 1px solid #f1f5f9; padding-bottom: 10px;">
+            <span style="color: var(--text-muted); font-weight: 600; font-size: 13px;">Примечание:</span>
+            <span style="font-weight: 500; color: #1e293b; background: #f8fafc; padding: 10px 14px; border-radius: 10px; font-size: 13px; border-left: 4px solid var(--primary); line-height: 1.4;">${escapeHtml(log.notes)}</span>
+        </div>
+    ` : '';
+
+    body.innerHTML = `
+        <div style="display: grid; gap: 16px; font-size: 14px;">
+            <div style="display: flex; justify-content: space-between; border-bottom: 1px solid #f1f5f9; padding-bottom: 10px; align-items: center;">
+                <span style="color: var(--text-muted); font-weight: 600; font-size: 13px;">Сотрудник:</span>
+                <span style="font-weight: 700; color: var(--text-main); font-size: 13.5px;">${escapeHtml(name)}</span>
+            </div>
+            <div style="display: flex; justify-content: space-between; border-bottom: 1px solid #f1f5f9; padding-bottom: 10px; align-items: center;">
+                <span style="color: var(--text-muted); font-weight: 600; font-size: 13px;">ID сотрудника:</span>
+                <span style="font-family: monospace; color: var(--text-main); font-size: 12px; font-weight: 600; background: #f1f5f9; padding: 2px 6px; border-radius: 6px;">${escapeHtml(userId)}</span>
+            </div>
+            <div style="display: flex; justify-content: space-between; border-bottom: 1px solid #f1f5f9; padding-bottom: 10px; align-items: center;">
+                <span style="color: var(--text-muted); font-weight: 600; font-size: 13px;">Товар:</span>
+                <span style="font-weight: 700; color: var(--text-main); font-size: 13.5px;">${escapeHtml(item)}</span>
+            </div>
+            <div style="display: flex; justify-content: space-between; border-bottom: 1px solid #f1f5f9; padding-bottom: 10px; align-items: center;">
+                <span style="color: var(--text-muted); font-weight: 600; font-size: 13px;">ID товара:</span>
+                <span style="font-family: monospace; color: var(--text-main); font-size: 12px; font-weight: 600; background: #f1f5f9; padding: 2px 6px; border-radius: 6px;">${escapeHtml(log.itemId || '—')}</span>
+            </div>
+            <div style="display: flex; justify-content: space-between; border-bottom: 1px solid #f1f5f9; padding-bottom: 10px; align-items: center;">
+                <span style="color: var(--text-muted); font-weight: 600; font-size: 13px;">Действие:</span>
+                <span>${actionBadge}</span>
+            </div>
+            <div style="display: flex; justify-content: space-between; border-bottom: 1px solid #f1f5f9; padding-bottom: 10px; align-items: center;">
+                <span style="color: var(--text-muted); font-weight: 600; font-size: 13px;">Количество:</span>
+                <span style="font-weight: 800; color: var(--text-main); font-size: 15px;">${quantity} шт.</span>
+            </div>
+            ${issuerHtml}
+            ${recipientHtml}
+            ${notesHtml}
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <span style="color: var(--text-muted); font-weight: 600; font-size: 13px;">Время операции:</span>
+                <span style="color: var(--text-main); font-weight: 700; font-size: 13.5px;">${ts}</span>
+            </div>
+        </div>
+    `;
+
+    modal.style.display = 'flex';
+}
+
+// ==========================================
+// ЭКСПОРТ CSV
+// ==========================================
+
+function setupExport() {
+    document.getElementById('exportCsv').addEventListener('click', () => {
+        if (currentLogs.length === 0) {
+            alert('Нет данных для экспорта');
+            return;
+        }
+
+        const header = 'Номер;Сотрудник;Товар;Количество;Действие;Время\n';
+        const rows = currentLogs.map((log, idx) => {
+            const name = (log.userName || '').replace(/;/g, '');
+            const item = (log.itemName || '').replace(/;/g, '');
+            const quantity = Math.abs(log.quantityChange || 0);
+            const action = (log.quantityChange || 0) < 0 ? 'Взял' : 'Добавил';
+            const ts = log.timestamp ? new Date(log.timestamp).toLocaleString('ru') : '';
+            return `${idx + 1};${name};${item};${quantity};${action};${ts}`;
+        }).join('\n');
+
+        const blob = new Blob(['\uFEFF' + header + rows], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'warehouse_history.csv';
+        a.click();
+        URL.revokeObjectURL(url);
+    });
+}
+
+// ==========================================
+// УТИЛИТЫ
+// ==========================================
+
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+</script>
+
+{% endblock %}

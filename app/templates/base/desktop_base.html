@@ -1,0 +1,958 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#2563eb">
+    <link rel="manifest" href="/static/manifest.json">
+    <link rel="icon" href="/static/icons/icon-192x192.svg" type="image/svg+xml">
+    <link rel="apple-touch-icon" href="/static/icons/icon-192x192.svg">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <title>{% block title %}Склад{% endblock %}</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@phosphor-icons/web@2.1.1/src/css/icons.css">
+    <style>
+        /* Глобальные цветовые переменные */
+        :root {
+            --primary: #2563eb;
+            --primary-bg: #eff6ff;
+            --success: #16a34a;
+            --success-bg: #f0fdf4;
+            --warning: #d97706;
+            --warning-bg: #fffbeb;
+            --danger: #dc2626;
+            --danger-bg: #fef2f2;
+            --border: #e5e7eb;
+            --bg-main: #f9fafb;
+            --text-main: #111827;
+            --text-muted: #6b7280;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+            background: var(--bg-main);
+            color: var(--text-main);
+            line-height: 1.5;
+            -webkit-font-smoothing: antialiased;
+            margin: 0;
+            padding: 0;
+        }
+
+        .app-layout {
+            display: flex;
+            min-height: 100vh;
+            width: 100%;
+        }
+
+        /* Боковая панель (Sidebar) */
+        .sidebar {
+            width: 260px;
+            background: #ffffff;
+            border-right: 1px solid var(--border);
+            position: fixed;
+            top: 0;
+            bottom: 0;
+            left: 0;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            padding: 24px 16px;
+            z-index: 100;
+        }
+
+        .sidebar-top {
+            display: flex;
+            flex-direction: column;
+            gap: 24px;
+        }
+
+        /* Логотип */
+        .logo {
+            font-size: 20px;
+            font-weight: 800;
+            color: var(--text-main);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            text-decoration: none;
+            padding-left: 6px;
+            margin-bottom: 8px;
+        }
+
+        .logo-icon {
+            width: 36px;
+            height: 36px;
+            background: var(--primary);
+            color: white;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+            box-shadow: 0 4px 6px rgba(37, 99, 235, 0.2);
+        }
+
+        /* Ссылки меню в боковой панели */
+        .nav-links {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .nav-link {
+            text-decoration: none;
+            color: var(--text-muted);
+            font-size: 14.5px;
+            font-weight: 600;
+            padding: 11px 14px;
+            border-radius: 10px;
+            transition: all 0.15s ease;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .nav-link i {
+            font-size: 18px;
+            color: #9ca3af;
+            transition: color 0.15s;
+        }
+
+        .nav-link:hover {
+            color: var(--text-main);
+            background: #f3f4f6;
+        }
+
+        .nav-link:hover i {
+            color: var(--text-main);
+        }
+
+        /* Активная ссылка меню */
+        .nav-link.active {
+            color: var(--primary);
+            background: var(--primary-bg);
+        }
+
+        .nav-link.active i {
+            color: var(--primary);
+        }
+
+        /* Нижняя часть боковой панели */
+        .sidebar-bottom {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        /* Панель телеметрии БД в стиле диспетчера задач */
+        .sidebar-telemetry {
+            background: #ffffff;
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 16px;
+            font-size: 13px;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.03);
+            margin-bottom: 8px;
+        }
+
+        .telemetry-header {
+            font-weight: 800;
+            color: var(--text-main);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 14px;
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+            border-bottom: 1px solid #f1f5f9;
+            padding-bottom: 8px;
+        }
+
+        .telemetry-header i {
+            color: var(--primary);
+            font-size: 18px;
+        }
+
+        .telemetry-pulse {
+            width: 8px;
+            height: 8px;
+            background-color: #10b981;
+            border-radius: 50%;
+            margin-left: auto;
+            box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.2);
+            animation: pulse-online 2s infinite;
+        }
+
+        .telemetry-section-title {
+            font-size: 10.5px;
+            font-weight: 700;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin: 12px 0 8px 0;
+        }
+
+        .telemetry-item {
+            margin-bottom: 10px;
+        }
+
+        .telemetry-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-weight: 500;
+            color: var(--text-main);
+            font-size: 12.5px;
+        }
+
+        .telemetry-row.sub {
+            font-size: 10.5px;
+            color: var(--text-muted);
+            font-weight: 500;
+            margin-top: 2px;
+        }
+
+        .telemetry-bar-bg {
+            height: 6px;
+            background: #e2e8f0;
+            border-radius: 3px;
+            overflow: hidden;
+            margin: 4px 0 2px 0;
+        }
+
+        .telemetry-bar {
+            height: 100%;
+            width: 0%;
+            border-radius: 3px;
+            transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .reads-bar { background: var(--primary); }
+        .writes-bar { background: var(--success); }
+        .deletes-bar { background: var(--danger); }
+
+        .telemetry-divider {
+            height: 1px;
+            background: #f1f5f9;
+            margin: 14px 0;
+        }
+
+        .metric-row {
+            padding: 4px 0;
+            font-size: 12px;
+            color: #475569;
+        }
+
+        .metric-row i {
+            font-size: 15px;
+            color: #64748b;
+            vertical-align: middle;
+            margin-right: 4px;
+        }
+
+        .metric-val {
+            font-weight: 700;
+            color: var(--text-main);
+        }
+
+        /* Беджи для Пинга и Статуса */
+        .badge-ping {
+            padding: 2px 6px;
+            border-radius: 6px;
+            font-size: 10.5px;
+            font-weight: 700;
+        }
+        .ping-good { background: #d1fae5; color: #065f46; }
+        .ping-warn { background: #fef3c7; color: #92400e; }
+        .ping-bad { background: #fee2e2; color: #991b1b; }
+
+        .badge-status {
+            padding: 2px 6px;
+            border-radius: 6px;
+            font-size: 10.5px;
+            font-weight: 700;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+        }
+        .badge-status.online { background: #eff6ff; color: #1e40af; }
+
+        /* Профиль пользователя */
+        .user-menu-wrapper {
+            position: relative;
+            width: 100%;
+        }
+
+        .user-menu-trigger {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            background: #ffffff;
+            padding: 8px 12px;
+            border-radius: 12px;
+            border: 1px solid var(--border);
+            transition: all 0.2s ease;
+            cursor: pointer;
+            outline: none;
+            font-family: inherit;
+            text-align: left;
+            width: 100%;
+        }
+
+        .user-menu-trigger:hover {
+            border-color: #cbd5e1;
+            background: #f8fafc;
+        }
+
+        .user-avatar-wrapper {
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .user-avatar {
+            width: 32px; 
+            height: 32px; 
+            background: linear-gradient(135deg, var(--primary), #1d4ed8); 
+            color: white; 
+            border-radius: 8px; 
+            display: flex; 
+            align-items: center; 
+            justify-content: center; 
+            font-weight: 700; 
+            font-size: 14px;
+            box-shadow: 0 1.5px 3px rgba(37, 99, 235, 0.15);
+        }
+
+        .status-dot-online {
+            position: absolute;
+            bottom: -2px;
+            right: -2px;
+            width: 10px;
+            height: 10px;
+            background-color: #10b981;
+            border: 2px solid #ffffff;
+            border-radius: 50%;
+            box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.2);
+            animation: pulse-online 2s infinite;
+        }
+
+        @keyframes pulse-online {
+            0% {
+                box-shadow: 0 0 0 0px rgba(16, 185, 129, 0.5);
+            }
+            100% {
+                box-shadow: 0 0 0 5px rgba(16, 185, 129, 0);
+            }
+        }
+
+        .user-info {
+            display: flex;
+            flex-direction: column;
+            flex: 1;
+            min-width: 0;
+        }
+
+        .user-name {
+            font-size: 13px;
+            font-weight: 700;
+            color: var(--text-main);
+            line-height: 1.2;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .user-role {
+            font-size: 11px;
+            color: var(--text-muted);
+            line-height: 1.2;
+            margin-top: 2px;
+        }
+
+        .caret-icon {
+            font-size: 12px;
+            color: var(--text-muted);
+            transition: transform 0.2s;
+        }
+
+        /* Выпадающее меню вверх */
+        .user-dropdown {
+            position: absolute;
+            bottom: calc(100% + 8px);
+            left: 0;
+            right: 0;
+            background: #ffffff;
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            box-shadow: 0 -10px 15px -3px rgba(0,0,0,0.08), 0 -4px 6px -2px rgba(0,0,0,0.04);
+            padding: 6px;
+            display: none;
+            flex-direction: column;
+            z-index: 200;
+            animation: dropdown-fade-in 0.15s ease-out;
+        }
+
+        .user-dropdown.show {
+            display: flex;
+        }
+
+        @keyframes dropdown-fade-in {
+            from {
+                opacity: 0;
+                transform: translateY(6px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .dropdown-header {
+            padding: 6px 10px;
+            display: flex;
+            align-items: center;
+        }
+
+        .online-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            font-size: 10.5px;
+            font-weight: 600;
+            color: #059669;
+            background: #ecfdf5;
+            padding: 1.5px 6px;
+            border-radius: 50px;
+        }
+
+        .badge-dot {
+            width: 5px;
+            height: 5px;
+            background: #10b981;
+            border-radius: 50%;
+        }
+
+        .dropdown-divider {
+            border: 0;
+            height: 1px;
+            background: var(--border);
+            margin: 4px 0;
+        }
+
+        .dropdown-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 10px;
+            font-size: 13px;
+            font-weight: 500;
+            color: var(--text-main);
+            text-decoration: none;
+            border-radius: 8px;
+            transition: all 0.15s ease;
+        }
+
+        .dropdown-item i {
+            font-size: 15px;
+            color: var(--text-muted);
+        }
+
+        .dropdown-item:hover {
+            background: #f3f4f6;
+        }
+
+        .dropdown-item:hover i {
+            color: var(--text-main);
+        }
+
+        .dropdown-item.logout-item {
+            color: var(--danger);
+        }
+
+        .dropdown-item.logout-item i {
+            color: var(--danger);
+        }
+
+        .dropdown-item.logout-item:hover {
+            background: var(--danger-bg);
+        }
+
+        /* Область основного содержимого */
+        .main-content {
+            margin-left: 260px;
+            flex: 1;
+            min-width: 0;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 32px 24px;
+        }
+
+        /* Обновленные стили базовых компонентов */
+        .card {
+            background: white;
+            border-radius: 16px;
+            border: 1px solid var(--border);
+            overflow: hidden;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.02), 0 2px 4px -1px rgba(0, 0, 0, 0.02);
+        }
+
+        .card-header {
+            padding: 16px 20px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: #fafafa;
+        }
+
+        .card-title {
+            font-size: 15px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: var(--text-main);
+        }
+
+        .card-body {
+            padding: 16px 20px;
+        }
+
+        .btn {
+            padding: 8px 16px;
+            border-radius: 10px;
+            border: none;
+            font-size: 13px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+        }
+
+        .btn-primary {
+            background: var(--primary);
+            color: white;
+            box-shadow: 0 2px 4px rgba(37, 99, 235, 0.2);
+        }
+
+        .btn-primary:hover {
+            background: #1d4ed8;
+            transform: translateY(-1px);
+        }
+
+        .btn-outline {
+            background: transparent;
+            border: 1px solid var(--border);
+            color: var(--text-main);
+        }
+
+        .btn-outline:hover {
+            border-color: #d1d5db;
+            background: #f9fafb;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+        }
+
+        .badge-created { background: #fef3c7; color: #d97706; }
+        .badge-processing { background: #dbeafe; color: #2563eb; }
+        .badge-ready { background: #d1fae5; color: #059669; }
+        .badge-danger { background: #fee2e2; color: #dc2626; }
+
+        .list-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 14px 0;
+            border-bottom: 1px solid #f3f4f6;
+        }
+
+        .list-item:last-child {
+            border-bottom: none;
+        }
+
+        /* Статус бары (Firebase) */
+        .status-bar {
+            margin-bottom: 24px;
+            padding: 12px 16px;
+            border-radius: 12px;
+            font-size: 14px;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .status-connected { background: var(--success-bg); border: 1px solid #dcfce7; color: var(--success); }
+        .status-error { background: var(--danger-bg); border: 1px solid #fee2e2; color: var(--danger); }
+
+        @media (max-width: 992px) {
+            .sidebar { width: 80px; padding: 20px 10px; }
+            .sidebar .logo span, .sidebar .nav-link span, .sidebar .user-info, .sidebar .caret-icon, .sidebar-telemetry { display: none; }
+            .sidebar .logo { padding-left: 0; justify-content: center; }
+            .sidebar .nav-link { justify-content: center; padding: 12px; }
+            .sidebar .nav-link i { font-size: 22px; }
+            .main-content { margin-left: 80px; }
+        }
+
+        /* Глобальные стили для спиннеров */
+        .ph-spinner {
+            display: inline-block !important;
+            animation: spin 1s linear infinite !important;
+        }
+
+        @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="app-layout">
+        <!-- Боковая панель (Sidebar) -->
+        <aside class="sidebar">
+            <div class="sidebar-top">
+                <a href="/desktop/dashboard" class="logo">
+                    <div class="logo-icon">
+                        <i class="ph ph-package"></i>
+                    </div>
+                    <span>Склад</span>
+                </a>
+                
+                <nav class="nav-links">
+                    <a href="/desktop/dashboard" class="nav-link">
+                        <i class="ph ph-layout"></i>
+                        <span>Дашборд</span>
+                    </a>
+                    <a href="/desktop/parts_list" class="nav-link">
+                        <i class="ph ph-package"></i>
+                        <span>Каталог</span>
+                    </a>
+                    <a href="/desktop/transactions" class="nav-link">
+                        <i class="ph ph-arrows-left-right"></i>
+                        <span>Операции</span>
+                    </a>
+                    <a href="/desktop/history" class="nav-link">
+                        <i class="ph ph-clock-counter-clockwise"></i>
+                        <span>История</span>
+                    </a>
+                    <a href="/desktop/users" class="nav-link">
+                        <i class="ph ph-users"></i>
+                        <span>Сотрудники</span>
+                    </a>
+                    <a href="/desktop/import_export" class="nav-link">
+                        <i class="ph ph-file-arrow-up"></i>
+                        <span>Импорт</span>
+                    </a>
+                </nav>
+            </div>
+            
+            <div class="sidebar-bottom">
+                <!-- Телеметрия Firestore (для админа и менеджера склада) -->
+                {% set role_str = user_role.value if user_role.value is defined else user_role %}
+                {% if role_str == 'admin' or role_str == 'inventory_manager' %}
+                <div class="sidebar-telemetry">
+                    <div class="telemetry-header">
+                        <i class="ph ph-cpu"></i>
+                        <span>Монитор БД</span>
+                        <span class="telemetry-pulse"></span>
+                    </div>
+                    <div class="telemetry-body">
+                        <!-- Лимиты и операции -->
+                        <div class="telemetry-section-title">Операции (24ч)</div>
+                        
+                        <div class="telemetry-item">
+                            <div class="telemetry-row">
+                                <span>Чтения (Reads):</span>
+                                <strong id="sidebarReads">0</strong>
+                            </div>
+                            <div class="telemetry-bar-bg">
+                                <div class="telemetry-bar reads-bar" id="sidebarReadsBar"></div>
+                            </div>
+                            <div class="telemetry-row sub">
+                                <span id="sidebarReadsPercent">0%</span>
+                                <span>лимит 50k / день</span>
+                            </div>
+                        </div>
+
+                        <div class="telemetry-item">
+                            <div class="telemetry-row">
+                                <span>Записи (Writes):</span>
+                                <strong id="sidebarWrites">0</strong>
+                            </div>
+                            <div class="telemetry-bar-bg">
+                                <div class="telemetry-bar writes-bar" id="sidebarWritesBar"></div>
+                            </div>
+                            <div class="telemetry-row sub">
+                                <span id="sidebarWritesPercent">0%</span>
+                                <span>лимит 20k / день</span>
+                            </div>
+                        </div>
+
+                        <div class="telemetry-item">
+                            <div class="telemetry-row">
+                                <span>Удаления (Deletes):</span>
+                                <strong id="sidebarDeletes">0</strong>
+                            </div>
+                            <div class="telemetry-bar-bg">
+                                <div class="telemetry-bar deletes-bar" id="sidebarDeletesBar"></div>
+                            </div>
+                            <div class="telemetry-row sub">
+                                <span id="sidebarDeletesPercent">0%</span>
+                                <span>лимит 20k / день</span>
+                            </div>
+                        </div>
+
+                        <div class="telemetry-divider"></div>
+
+                        <!-- Производительность -->
+                        <div class="telemetry-section-title">Производительность</div>
+                        
+                        <div class="telemetry-row metric-row">
+                            <span><i class="ph ph-gauge"></i> Отклик (Ping):</span>
+                            <span class="metric-val" id="sidebarPing"><span class="badge-ping ping-good">0 ms</span></span>
+                        </div>
+                        
+                        <div class="telemetry-row metric-row">
+                            <span><i class="ph ph-lightning"></i> Кэш (Hit Rate):</span>
+                            <span class="metric-val" id="sidebarCacheHit">100%</span>
+                        </div>
+                        
+                        <div class="telemetry-row metric-row">
+                            <span><i class="ph ph-users-three"></i> В сети:</span>
+                            <strong id="sidebarOnline">1 чел</strong>
+                        </div>
+
+                        <div class="telemetry-row metric-row">
+                            <span><i class="ph ph-plugs"></i> Статус API:</span>
+                            <span id="sidebarApiStatus"><span class="badge-status online">В сети</span></span>
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+                
+                <!-- Профиль пользователя -->
+                <div class="user-menu-wrapper">
+                    <button class="user-menu-trigger" id="userMenuTrigger">
+                        <div class="user-avatar-wrapper">
+                            <div class="user-avatar">
+                                {{ user_name[:1]|upper if user_name else 'U' }}
+                            </div>
+                            <span class="status-dot-online"></span>
+                        </div>
+                        <div class="user-info">
+                            <span class="user-name">{{ user_name }}</span>
+                            {% set role_str = user_role.value if user_role.value is defined else user_role %}
+                            <span class="user-role">
+                                {% if role_str == 'admin' %}Администратор
+                                {% elif role_str == 'inventory_manager' %}Менеджер
+                                {% elif role_str == 'muver' %}Мувер
+                                {% elif role_str == 'electrician' %}Электрик
+                                {% elif role_str == 'technic' %}Техник
+                                {% elif role_str == 'supervisor' %}Супервайзер
+                                {% elif role_str == 'security' %}Охранник
+                                {% else %}{{ role_str }}{% endif %}
+                            </span>
+                        </div>
+                        <i class="ph ph-caret-up caret-icon"></i>
+                    </button>
+                    
+                    <div class="user-dropdown" id="userDropdown">
+                        <div class="dropdown-header">
+                            <span class="online-badge"><span class="badge-dot"></span> В сети</span>
+                        </div>
+                        <hr class="dropdown-divider">
+                        <a href="/profile" class="dropdown-item">
+                            <i class="ph ph-gear"></i> Профиль
+                        </a>
+                        <a href="/logout" class="dropdown-item">
+                            <i class="ph ph-user-switch"></i> Сменить акк
+                        </a>
+                        <hr class="dropdown-divider">
+                        <a href="/logout" class="dropdown-item logout-item">
+                            <i class="ph ph-sign-out"></i> Выйти
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Основная область -->
+        <div class="main-content">
+            <div class="container">
+                {% block content %}{% endblock %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Библиотека анимации счетчиков CountUp.js -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/countup.js/2.0.7/countUp.umd.js"></script>
+
+    <!-- Роутер для мгновенных SPA-переходов -->
+    <script src="/static/js/spa-router.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // Обновление телеметрии в сайдбаре
+            async function refreshSidebarTelemetry() {
+                {% set role_str = user_role.value if user_role.value is defined else user_role %}
+                const role = '{{ role_str }}';
+                if (role !== 'admin' && role !== 'inventory_manager') return;
+                try {
+                    const res = await fetch(`/api/admin/db-telemetry?user_role=${role}`);
+                    if (!res.ok) return;
+                    const data = await res.json();
+                    
+                    const reads = data.summary.READ || 0;
+                    const writes = data.summary.WRITE || 0;
+                    const deletes = data.summary.DELETE || 0;
+                    
+                    const sidebarReads = document.getElementById('sidebarReads');
+                    const sidebarWrites = document.getElementById('sidebarWrites');
+                    const sidebarDeletes = document.getElementById('sidebarDeletes');
+                    
+                    if (sidebarReads) sidebarReads.textContent = reads.toLocaleString('ru');
+                    if (sidebarWrites) sidebarWrites.textContent = writes.toLocaleString('ru');
+                    if (sidebarDeletes) sidebarDeletes.textContent = deletes.toLocaleString('ru');
+                    
+                    // Обновляем прогресс-бары и проценты
+                    const readLimit = 50000;
+                    const writeLimit = 20000;
+                    const deleteLimit = 20000;
+                    
+                    const readPercent = Math.min(100, Math.round((reads / readLimit) * 100));
+                    const writePercent = Math.min(100, Math.round((writes / writeLimit) * 100));
+                    const deletePercent = Math.min(100, Math.round((deletes / deleteLimit) * 100));
+                    
+                    const sidebarReadsBar = document.getElementById('sidebarReadsBar');
+                    const sidebarWritesBar = document.getElementById('sidebarWritesBar');
+                    const sidebarDeletesBar = document.getElementById('sidebarDeletesBar');
+                    
+                    const sidebarReadsPercent = document.getElementById('sidebarReadsPercent');
+                    const sidebarWritesPercent = document.getElementById('sidebarWritesPercent');
+                    const sidebarDeletesPercent = document.getElementById('sidebarDeletesPercent');
+                    
+                    if (sidebarReadsBar) sidebarReadsBar.style.width = readPercent + '%';
+                    if (sidebarWritesBar) sidebarWritesBar.style.width = writePercent + '%';
+                    if (sidebarDeletesBar) sidebarDeletesBar.style.width = deletePercent + '%';
+                    
+                    if (sidebarReadsPercent) sidebarReadsPercent.textContent = readPercent + '%';
+                    if (sidebarWritesPercent) sidebarWritesPercent.textContent = writePercent + '%';
+                    if (sidebarDeletesPercent) sidebarDeletesPercent.textContent = deletePercent + '%';
+                    
+                    // Производительность
+                    const ping = data.metrics.avg_latency || 0;
+                    const cacheRate = data.metrics.cache_hit_rate || 0;
+                    const onlineUsers = data.metrics.online_users || 1;
+                    
+                    const sidebarPing = document.getElementById('sidebarPing');
+                    if (sidebarPing) {
+                        let pingClass = 'ping-good';
+                        let pingLabel = 'Отл';
+                        if (ping > 500) {
+                            pingClass = 'ping-bad';
+                            pingLabel = 'Медл';
+                        } else if (ping > 200) {
+                            pingClass = 'ping-warn';
+                            pingLabel = 'Средн';
+                        }
+                        sidebarPing.innerHTML = `<span class="badge-ping ${pingClass}">${ping} ms (${pingLabel})</span>`;
+                    }
+                    
+                    const sidebarCacheHit = document.getElementById('sidebarCacheHit');
+                    if (sidebarCacheHit) sidebarCacheHit.textContent = cacheRate + '%';
+                    
+                    const sidebarOnline = document.getElementById('sidebarOnline');
+                    if (sidebarOnline) sidebarOnline.textContent = onlineUsers + ' чел';
+                    
+                } catch(e) {
+                    console.error("Error refreshing sidebar telemetry:", e);
+                }
+            }
+
+            {% set role_str = user_role.value if user_role.value is defined else user_role %}
+            if (role_str === 'admin' || role_str === 'inventory_manager') {
+                refreshSidebarTelemetry();
+                // Обновляем раз в 30 секунд
+                setInterval(refreshSidebarTelemetry, 30000);
+            }
+
+            // Heartbeat: отправляем ping каждые 2 минуты для поддержания lastSeen
+            setInterval(() => {
+                fetch('/api/ping', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: '{}' })
+                    .catch(() => {});
+            }, 120000);
+
+            // Выпадающее меню пользователя
+            const userMenuTrigger = document.getElementById('userMenuTrigger');
+            const userDropdown = document.getElementById('userDropdown');
+            const caretIcon = userMenuTrigger.querySelector('.caret-icon');
+
+            userMenuTrigger.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const isShown = userDropdown.classList.toggle('show');
+                if (isShown) {
+                    caretIcon.style.transform = 'rotate(180deg)';
+                } else {
+                    caretIcon.style.transform = 'rotate(0deg)';
+                }
+            });
+
+            document.addEventListener('click', (e) => {
+                if (!userMenuTrigger.contains(e.target) && !userDropdown.contains(e.target)) {
+                    userDropdown.classList.remove('show');
+                    caretIcon.style.transform = 'rotate(0deg)';
+                }
+            });
+        });
+    </script>
+
+<script>
+if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/static/sw.js', { scope: '/' })
+            .then((reg) => {
+                console.log('✅ SW зарегистрирован:', reg.scope);
+                reg.addEventListener('updatefound', () => {
+                    const newWorker = reg.installing;
+                    if (newWorker) {
+                        newWorker.addEventListener('statechange', () => {
+                            if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                                console.log('🔄 SW обновлён — перезагрузите страницу');
+                                if (confirm('Доступна новая версия приложения. Перезагрузить?')) {
+                                    window.location.reload();
+                                }
+                            }
+                        });
+                    }
+                });
+            })
+            .catch((err) => {
+                console.warn('⚠️ SW не зарегистрирован:', err);
+            });
+    });
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,1487 @@
+{% extends "base/desktop_base.html" %}
+
+{% block title %}Дашборд{% endblock %}
+
+{% block content %}
+{% if user_role == 'admin' %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+{% endif %}
+<style>
+    :root {
+        --primary: #2563eb;
+        --primary-bg: #eff6ff;
+        --success: #16a34a;
+        --success-bg: #f0fdf4;
+        --warning: #d97706;
+        --warning-bg: #fffbeb;
+        --danger: #dc2626;
+        --danger-bg: #fef2f2;
+        --border: #e5e7eb;
+        --bg-main: #f9fafb;
+        --text-main: #111827;
+        --text-muted: #6b7280;
+    }
+
+    /* Общие стили карточек */
+    .db-card {
+        background: #ffffff;
+        border-radius: 16px;
+        border: 1px solid var(--border);
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.02), 0 2px 4px -1px rgba(0, 0, 0, 0.02);
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+    }
+    
+    .db-card-header {
+        padding: 16px 20px;
+        border-bottom: 1px solid var(--border);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        background: #fafafa;
+    }
+
+    .db-card-title {
+        font-weight: 600;
+        font-size: 15px;
+        color: var(--text-main);
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .db-list-item {
+        padding: 14px 20px;
+        border-bottom: 1px solid #f3f4f6;
+        display: flex;
+        align-items: center;
+        transition: background 0.15s ease;
+    }
+
+    .db-list-item:last-child {
+        border-bottom: none;
+    }
+
+    .db-list-item:hover {
+        background: #f8fafc;
+    }
+
+    .db-badge {
+        padding: 4px 10px;
+        border-radius: 12px;
+        font-size: 11px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.3px;
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+    }
+
+    .db-badge-success { background: var(--success-bg); color: var(--success); }
+    .db-badge-warning { background: var(--warning-bg); color: var(--warning); }
+    .db-badge-danger { background: var(--danger-bg); color: var(--danger); }
+    .db-badge-primary { background: var(--primary-bg); color: var(--primary); }
+    .db-badge-gray { background: #f3f4f6; color: var(--text-muted); }
+
+    /* Метрики */
+    .metric-card {
+        background: #ffffff;
+        border-radius: 16px;
+        border: 1px solid var(--border);
+        padding: 20px;
+        display: flex;
+        flex-direction: column;
+        position: relative;
+        overflow: hidden;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.01);
+        transition: transform 0.2s;
+    }
+    .metric-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 10px 15px -3px rgba(0,0,0,0.05);
+    }
+
+    /* Новости */
+    .news-item-card {
+        background: #ffffff;
+        border: 1px solid var(--border);
+        border-radius: 16px;
+        padding: 18px;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.02), 0 2px 4px -1px rgba(0, 0, 0, 0.02);
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    .news-item-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.05);
+        border-color: #cbd5e1;
+    }
+
+    .tag-chip {
+        transition: all 0.2s;
+    }
+    .tag-chip:hover:not(.active) {
+        background: #f3f4f6 !important;
+        border-color: #cbd5e1 !important;
+    }
+    .tag-chip.active[data-tag="TODAY"] {
+        background: var(--primary-bg) !important;
+        border-color: var(--primary) !important;
+        color: var(--primary) !important;
+    }
+    .tag-chip.active[data-tag="TOMORROW"] {
+        background: var(--success-bg) !important;
+        border-color: var(--success) !important;
+        color: var(--success) !important;
+    }
+    .tag-chip.active[data-tag="URGENT"] {
+        background: var(--danger-bg) !important;
+        border-color: var(--danger) !important;
+        color: var(--danger) !important;
+    }
+    .tag-chip.active[data-tag="GENERAL"] {
+        background: #f3f4f6 !important;
+        border-color: #cbd5e1 !important;
+        color: var(--text-main) !important;
+    }
+</style>
+
+<!-- Шапка дашборда (аккаунт справа) -->
+<div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 24px; flex-wrap: wrap; gap: 16px;">
+    <!-- Левая часть: Приветствие -->
+    <div>
+        <h1 style="font-size: 28px; font-weight: 800; color: var(--text-main); margin: 0; letter-spacing: -0.5px;">Дашборд</h1>
+        <p style="color: var(--text-muted); font-size: 14px; margin: 6px 0 0 0; display: flex; align-items: center; gap: 6px;">
+            <i class="ph ph-warehouse" style="font-size: 16px;"></i> Склад: <strong>{{ warehouse }}</strong>
+        </p>
+    </div>
+
+    <!-- Правая часть: Управление дашбордом -->
+    <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 12px;">
+        <!-- Кнопка обновления -->
+        <div style="display: flex; gap: 12px; align-items: center;">
+            <span id="lastUpdateTime" style="font-size: 12px; color: var(--text-muted); font-weight: 500;"></span>
+            <button id="manualRefreshBtn" style="background: white; border: 1px solid var(--border); border-radius: 10px; padding: 8px 14px; cursor: pointer; font-size: 13px; font-weight: 500; color: var(--text-main); display: flex; align-items: center; gap: 6px; box-shadow: 0 1px 2px rgba(0,0,0,0.03); transition: all 0.2s;">
+                <i class="ph ph-arrow-clockwise" style="font-size: 16px;"></i> Обновить
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Статус Firebase -->
+<div style="margin-bottom: 24px; border-radius: 12px; padding: 12px 16px; display: flex; align-items: center; gap: 10px; font-size: 14px; font-weight: 500;
+    {% if firebase.connected %} background: var(--success-bg); color: var(--success); border: 1px solid #dcfce7;
+    {% else %} background: var(--danger-bg); color: var(--danger); border: 1px solid #fee2e2; {% endif %}">
+    
+    <i class="ph {% if firebase.connected %}ph-database{% else %}ph-warning-circle{% endif %}" style="font-size: 20px;"></i>
+    <span>
+        {% if firebase.connected %}
+        Подключено к базе данных · Локальная база IndexedDB активна и синхронизирована
+        {% else %}
+        Ошибка подключения к Firebase: {{ firebase.error|truncate(60) }}
+        {% endif %}
+    </span>
+</div>
+
+<!-- Лента новостей -->
+<div id="newsContainer" class="db-card" style="margin-bottom: 24px; {% if not news_items and not (user_role == 'admin' or user_role == 'inventory_manager') %}display: none;{% endif %}">
+    <div class="db-card-header" style="background: #fafafa; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); padding: 12px 20px;">
+        <span class="db-card-title">
+            <i class="ph ph-newspaper" style="color: var(--primary); font-size: 18px;"></i> Новости склада
+        </span>
+        {% if user_role == 'admin' or user_role == 'inventory_manager' %}
+        <button onclick="openNewsModal()" class="btn btn-primary" style="padding: 8px 14px; font-size: 13px; font-weight: 600; display: flex; align-items: center; gap: 6px; border-radius: 10px; box-shadow: 0 4px 6px rgba(37, 99, 235, 0.15); transition: all 0.2s;">
+            <i class="ph ph-plus" style="font-size: 16px;"></i> Добавить новость
+        </button>
+        {% endif %}
+    </div>
+    <div id="newsItemsList" style="padding: 16px; display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 16px;">
+        {% if news_items %}
+            {% for news in news_items %}
+            {% set tag = news.tag|upper %}
+            {% set is_admin_or_manager = user_role == 'admin' or user_role == 'inventory_manager' %}
+            <div style="background: #ffffff; border: 1px solid var(--border); border-radius: 12px; padding: 16px; box-shadow: 0 1px 2px rgba(0,0,0,0.02); display: flex; flex-direction: column; justify-content: space-between; transition: all 0.2s; {% if is_admin_or_manager %}cursor: pointer;{% endif %}" {% if is_admin_or_manager %}onclick="openNewsModal('{{ news.id }}')"{% endif %} class="news-item-card">
+                <div>
+                    <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 10px; gap: 8px;">
+                        <h4 style="font-weight: 700; font-size: 15px; color: var(--text-main); margin: 0; line-height: 1.4;">{{ news.title }}</h4>
+                        {% if tag == 'URGENT' %}
+                            <span class="db-badge db-badge-danger" style="font-size: 10px; font-weight: 700;"><i class="ph ph-warning-octagon" style="font-size: 12px;"></i> Срочно</span>
+                        {% elif tag == 'TOMORROW' %}
+                            <span class="db-badge db-badge-success" style="font-size: 10px; font-weight: 700;"><i class="ph ph-calendar-blank" style="font-size: 12px;"></i> Завтра</span>
+                        {% elif tag == 'TODAY' %}
+                            <span class="db-badge db-badge-primary" style="font-size: 10px; font-weight: 700;"><i class="ph ph-bell" style="font-size: 12px;"></i> Сегодня</span>
+                        {% else %}
+                            <span class="db-badge db-badge-gray" style="font-size: 10px; font-weight: 700;"><i class="ph ph-info" style="font-size: 12px;"></i> Общее</span>
+                        {% endif %}
+                    </div>
+                    <p style="font-size: 13px; color: var(--text-muted); line-height: 1.5; margin: 0; white-space: pre-line;">{{ news.content }}</p>
+                </div>
+            </div>
+            {% endfor %}
+        {% endif %}
+    </div>
+</div>
+
+<!-- Ключевые метрики (4 карточки) -->
+<div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 24px;">
+    <!-- ОСТАТКИ -->
+    <div class="metric-card">
+        <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+            <div style="width: 48px; height: 48px; background: var(--primary-bg); border-radius: 12px; display: flex; align-items: center; justify-content: center;">
+                <i class="ph ph-boxes" style="font-size: 24px; color: var(--primary);"></i>
+            </div>
+            <span class="db-badge db-badge-gray">ОСТАТКИ</span>
+        </div>
+        <div style="font-size: 34px; font-weight: 800; color: var(--text-main); margin-top: 12px;" id="totalItems">{{ total_items }}</div>
+        <div style="font-size: 13px; color: var(--text-muted); margin-bottom: 4px;">единиц товаров на складе</div>
+        <div style="font-size: 12px; color: var(--primary); font-weight: 600;">
+            <i class="ph ph-package"></i> Работа через локальный кэш
+        </div>
+    </div>
+
+    <!-- ЗАКАЗЫ -->
+    <div class="metric-card">
+        <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+            <div style="width: 48px; height: 48px; background: var(--warning-bg); border-radius: 12px; display: flex; align-items: center; justify-content: center;">
+                <i class="ph ph-shopping-cart" style="font-size: 24px; color: var(--warning);"></i>
+            </div>
+            <span class="db-badge db-badge-gray">ЗАКАЗЫ</span>
+        </div>
+        <div style="font-size: 34px; font-weight: 800; color: var(--text-main); margin-top: 12px;" id="activeOrders">{{ active_orders_count }}</div>
+        <div style="font-size: 13px; color: var(--text-muted); margin-bottom: 4px;">активных заказов в работе</div>
+        <div style="font-size: 12px; font-weight: 600; {% if active_orders_count > 0 %}color: var(--warning);{% else %}color: var(--success);{% endif %}">
+            {% if active_orders_count > 0 %}
+            <i class="ph ph-clock"></i> требуется обработка
+            {% else %}
+            <i class="ph ph-check-circle"></i> все заказы выданы
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- РИСКИ -->
+    <div class="metric-card">
+        <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+            <div style="width: 48px; height: 48px; background: var(--danger-bg); border-radius: 12px; display: flex; align-items: center; justify-content: center;">
+                <i class="ph ph-warning" style="font-size: 24px; color: var(--danger);"></i>
+            </div>
+            <span class="db-badge db-badge-gray">РИСКИ</span>
+        </div>
+        <div style="font-size: 34px; font-weight: 800; color: var(--text-main); margin-top: 12px;" id="lowStockCount">{{ low_stock_count }}</div>
+        <div style="font-size: 13px; color: var(--text-muted); margin-bottom: 4px;">позиций ниже порога запаса</div>
+        <div style="font-size: 12px; font-weight: 600; {% if low_stock_count > 0 %}color: var(--danger);{% else %}color: var(--success);{% endif %}">
+            {% if low_stock_count > 0 %}
+            <i class="ph ph-arrow-circle-down"></i> необходимо пополнить
+            {% else %}
+            <i class="ph ph-check-circle"></i> всё в норме
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- ОПЕРАЦИИ -->
+    <div class="metric-card">
+        <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+            <div style="width: 48px; height: 48px; background: var(--success-bg); border-radius: 12px; display: flex; align-items: center; justify-content: center;">
+                <i class="ph ph-arrows-left-right" style="font-size: 24px; color: var(--success);"></i>
+            </div>
+            <span class="db-badge db-badge-gray">ДВИЖЕНИЕ</span>
+        </div>
+        <div style="font-size: 34px; font-weight: 800; color: var(--text-main); margin-top: 12px;" id="todayOperations">{{ today_operations }}</div>
+        <div style="font-size: 13px; color: var(--text-muted); margin-bottom: 4px;">операций за сегодня</div>
+        <div style="font-size: 12px; font-weight: 600; color: var(--success);">
+            {% if today_operations > 0 %}
+            <i class="ph ph-activity"></i> склад работает
+            {% else %}
+            <i class="ph ph-moon"></i> без движений
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Списки: Активные заказы, Быстрый доступ и Критический запас -->
+<div style="display: grid; grid-template-columns: 1fr 1.2fr 1fr; gap: 24px; margin-bottom: 24px;">
+    <!-- Активные заказы -->
+    <div class="db-card">
+        <div class="db-card-header">
+            <span class="db-card-title"><i class="ph ph-shopping-cart" style="color: var(--warning); font-size: 18px;"></i> Активные заказы</span>
+            <a href="/desktop/transactions" style="font-size: 13px; font-weight: 600; color: var(--primary); text-decoration: none; display: flex; align-items: center; gap: 4px;">
+                Все <i class="ph ph-caret-right"></i>
+            </a>
+        </div>
+        <div id="ordersContainer" style="padding: 0; display: flex; flex-direction: column;">
+            {% if orders %}
+                {% for order in orders %}
+                <div class="db-list-item" style="cursor: pointer;" onclick="location.href='/desktop/transactions'">
+                    <div style="width: 40px; height: 40px; border-radius: 10px; background: var(--bg-main); display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-right: 12px; border: 1px solid var(--border);">
+                        <i class="ph ph-user" style="font-size: 18px; color: var(--text-muted);"></i>
+                    </div>
+                    <div style="min-width: 0; flex: 1;">
+                        <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+                            <span class="db-badge db-badge-{{ order.status_color }}">{{ order.status_text }}</span>
+                            <span style="font-weight: 600; font-size: 14px; color: var(--text-main);">{{ order.user_name }}</span>
+                        </div>
+                        <div style="font-size: 12px; color: var(--text-muted); margin-top: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{ order.items_text|truncate(70) }}</div>
+                    </div>
+                    <div style="font-size: 12px; color: var(--text-muted); flex-shrink: 0; margin-left: 12px; font-weight: 500;">
+                        {{ order.time }}
+                    </div>
+                </div>
+                {% endfor %}
+            {% else %}
+                <div style="text-align: center; padding: 48px 20px;">
+                    <div style="width: 64px; height: 64px; background: #f3f4f6; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 12px;">
+                        <i class="ph ph-shopping-cart" style="font-size: 28px; color: #9ca3af;"></i>
+                    </div>
+                    <p style="color: var(--text-muted); font-weight: 500;">Нет активных заказов</p>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Быстрый доступ -->
+    <div class="db-card">
+        <div class="db-card-header">
+            <span class="db-card-title"><i class="ph ph-lightning" style="color: var(--primary); font-size: 18px;"></i> Быстрый доступ</span>
+            <a href="/desktop/parts_list" style="font-size: 13px; font-weight: 600; color: var(--primary); text-decoration: none; display: flex; align-items: center; gap: 4px;">
+                Каталог <i class="ph ph-caret-right"></i>
+            </a>
+        </div>
+        <div id="catalogContainer" style="padding: 16px; flex: 1; display: flex; flex-direction: column; justify-content: center;">
+            {% if catalog %}
+                <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px;">
+                    {% for item in catalog %}
+                    <div onclick="location.href='/desktop/part_detail?id={{ item.id }}'" style="background: white; border: 1px solid var(--border); border-radius: 12px; padding: 12px; cursor: pointer; transition: all 0.2s; text-align: center; box-shadow: 0 1px 2px rgba(0,0,0,0.02); display: flex; flex-direction: column; align-items: center; justify-content: space-between; height: 100%;">
+                        <div style="width: 100%; height: 70px; background: var(--bg-main); border-radius: 8px; display: flex; align-items: center; justify-content: center; overflow: hidden; margin-bottom: 8px;">
+                            {% if item.imageUrl and 'placeholder' not in item.imageUrl %}
+                            <img src="{{ item.imageUrl }}" style="width: 100%; height: 100%; object-fit: contain; padding: 8px;" onerror="this.style.display='none';this.parentElement.innerHTML='<i class=\'ph ph-package\' style=\'font-size: 28px; color: #9ca3af;\'></i>'">
+                            {% else %}
+                            <i class="ph ph-package" style="font-size: 28px; color: #9ca3af;"></i>
+                            {% endif %}
+                        </div>
+                        <div style="width: 100%; font-size: 12px; font-weight: 600; color: var(--text-main); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 2px;" title="{{ item.name }}">{{ item.name }}</div>
+                        <div style="font-size: 11px; color: var(--text-muted); margin-bottom: 6px;">{{ item.sku }}</div>
+                        <div style="font-size: 13px; font-weight: 700; color: var(--primary);">{{ item.stock }} шт</div>
+                    </div>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <div style="text-align: center; padding: 20px; color: var(--text-muted);"><p>Нет товаров для отображения</p></div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Критический запас -->
+    <div class="db-card">
+        <div class="db-card-header">
+            <span class="db-card-title"><i class="ph ph-warning-octagon" style="color: var(--danger); font-size: 18px;"></i> Заканчиваются на складе</span>
+            <a href="/desktop/parts_list" style="font-size: 13px; font-weight: 600; color: var(--primary); text-decoration: none; display: flex; align-items: center; gap: 4px;">
+                Каталог <i class="ph ph-caret-right"></i>
+            </a>
+        </div>
+        <div id="lowStockContainer" style="padding: 0; display: flex; flex-direction: column;">
+            {% if low_stock %}
+                {% for item in low_stock %}
+                <div class="db-list-item" style="cursor: pointer;" onclick="location.href='/desktop/part_detail?id={{ item.id }}'">
+                    <div style="width: 44px; height: 44px; border-radius: 8px; background: var(--bg-main); border: 1px solid var(--border); display: flex; align-items: center; justify-content: center; overflow: hidden; flex-shrink: 0; margin-right: 12px;">
+                        {% if item.imageUrl and 'placeholder' not in item.imageUrl %}
+                        <img src="{{ item.imageUrl }}" style="width: 100%; height: 100%; object-fit: contain; padding: 4px;" onerror="this.style.display='none';this.parentElement.innerHTML='<i class=\'ph ph-package\' style=\'font-size: 20px; color: #9ca3af;\'></i>'">
+                        {% else %}
+                        <i class="ph ph-package" style="font-size: 20px; color: #9ca3af;"></i>
+                        {% endif %}
+                    </div>
+                    <div style="min-width: 0; flex: 1;">
+                        <div style="font-weight: 600; font-size: 14px; color: var(--text-main); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{ item.name }}</div>
+                        <div style="font-size: 12px; color: var(--text-muted); margin-top: 2px;">{{ item.sku }} · Порог: {{ item.threshold }} {{ item.unit or 'шт' }}</div>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 8px; flex-shrink: 0; margin-left: 12px;">
+                        <span class="db-badge db-badge-danger" style="font-size: 12px;">Остаток: {{ item.stock }} {{ item.unit or 'шт' }}</span>
+                    </div>
+                </div>
+                {% endfor %}
+            {% else %}
+                <div style="text-align: center; padding: 48px 20px;">
+                    <div style="width: 64px; height: 64px; background: var(--success-bg); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 12px;">
+                        <i class="ph ph-check-circle" style="font-size: 28px; color: var(--success);"></i>
+                    </div>
+                    <p style="color: var(--text-muted); font-weight: 500;">Всё в порядке — запасы достаточны</p>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Нижний ряд: Выдача и Real-time лента -->
+<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px;">
+    <!-- ФОРМА ВЫДАЧИ -->
+    <div class="db-card">
+        <div class="db-card-header">
+            <span class="db-card-title"><i class="ph ph-hand-truck" style="color: var(--primary); font-size: 18px;"></i> Выдача запчасти</span>
+            <span id="realtimeStatus" style="font-size: 12px; font-weight: 500; color: var(--text-muted);">
+                <span style="color: var(--text-muted);">○</span> Real-time
+            </span>
+        </div>
+        <div style="padding: 16px; display: flex; flex-direction: column; gap: 12px;">
+            <!-- Кому выдать -->
+            <div>
+                <label style="font-size: 13px; font-weight: 500; color: var(--text-main); display: block; margin-bottom: 6px;">
+                    <i class="ph ph-user" style="font-size: 14px;"></i> Кому выдать:
+                </label>
+                <select id="recipientSelect" style="width: 100%; padding: 10px 12px; border: 1px solid var(--border); border-radius: 10px; font-size: 14px; background: white; color: var(--text-main);">
+                    <option value="">👤 Загрузка...</option>
+                </select>
+            </div>
+            
+            <!-- Что выдать (поиск) -->
+            <div>
+                <label style="font-size: 13px; font-weight: 500; color: var(--text-main); display: block; margin-bottom: 6px;">
+                    <i class="ph ph-package" style="font-size: 14px;"></i> Что выдать:
+                </label>
+                <input id="itemSearch" type="text" oninput="onItemSearch()" placeholder="🔍 Начните вводить название или артикул..." 
+                       style="width: 100%; padding: 10px 12px; border: 1px solid var(--border); border-radius: 10px; font-size: 14px; outline: none; box-sizing: border-box;">
+                <div id="itemSearchResults" style="border: 1px solid var(--border); border-radius: 10px; margin-top: 4px; max-height: 200px; overflow-y: auto; display: none;" onmouseover="this.style.display='block'"></div>
+                <div id="selectedItemInfo" style="margin-top: 6px; font-size: 13px;"></div>
+            </div>
+            
+            <!-- Количество -->
+            <div>
+                <label style="font-size: 13px; font-weight: 500; color: var(--text-main); display: block; margin-bottom: 6px;">
+                    <i class="ph ph-hash" style="font-size: 14px;"></i> Количество:
+                </label>
+                <div style="display: flex; gap: 8px; align-items: center;">
+                    <button onclick="const inp = document.getElementById('issueQty'); inp.value = Math.max(1, parseInt(inp.value || 1) - 1);" 
+                            style="width: 36px; height: 36px; border: 1px solid var(--border); border-radius: 8px; background: white; cursor: pointer; font-size: 18px;">−</button>
+                    <input id="issueQty" type="number" value="1" min="1" 
+                           style="flex: 1; text-align: center; padding: 8px; border: 1px solid var(--border); border-radius: 8px; font-size: 16px; font-weight: 600; outline: none;">
+                    <button onclick="const inp = document.getElementById('issueQty'); inp.value = Math.min(999, parseInt(inp.value || 1) + 1);"
+                            style="width: 36px; height: 36px; border: 1px solid var(--border); border-radius: 8px; background: white; cursor: pointer; font-size: 18px;">+</button>
+                </div>
+            </div>
+            
+            <!-- Примечание -->
+            <div>
+                <label style="font-size: 13px; font-weight: 500; color: var(--text-main); display: block; margin-bottom: 6px;">
+                    <i class="ph ph-note" style="font-size: 14px;"></i> Примечание (опционально):
+                </label>
+                <input id="issueNotes" type="text" placeholder="Например: по заказу #123" 
+                       style="width: 100%; padding: 10px 12px; border: 1px solid var(--border); border-radius: 10px; font-size: 14px; outline: none; box-sizing: border-box;">
+            </div>
+            
+            <!-- Кнопка выдачи -->
+            <button id="issueBtn" onclick="confirmIssue()" disabled
+                    style="width: 100%; padding: 12px; border: none; border-radius: 12px; background: var(--primary); color: white; font-weight: 600; font-size: 15px; cursor: pointer; box-shadow: 0 4px 6px rgba(37, 99, 235, 0.2); transition: all 0.2s; display: flex; align-items: center; justify-content: center; gap: 8px; opacity: 0.5;">
+                <i class="ph ph-hand-truck"></i> Выдать
+            </button>
+        </div>
+    </div>
+
+    <!-- REAL-TIME ЛЕНТА -->
+    <div class="db-card">
+        <div class="db-card-header">
+            <span class="db-card-title"><i class="ph ph-broadcast" style="color: var(--success); font-size: 18px;"></i> События в реальном времени</span>
+            <a href="/desktop/history" style="font-size: 13px; font-weight: 600; color: var(--primary); text-decoration: none; display: flex; align-items: center; gap: 4px;">
+                История <i class="ph ph-caret-right"></i>
+            </a>
+        </div>
+        <div id="liveFeed" style="padding: 12px; display: flex; flex-direction: column; max-height: 450px; overflow-y: auto;">
+            <div style="text-align: center; padding: 40px 20px; color: var(--text-muted);">
+                <i class="ph ph-activity" style="font-size: 32px; display: block; margin-bottom: 8px;"></i>
+                <p style="font-weight: 500;">Ожидание событий...</p>
+                <p style="font-size: 12px;">Новые операции появятся здесь мгновенно</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% set role_str = user_role.value if user_role.value is defined else user_role %}
+{% if role_str == 'admin' or role_str == 'inventory_manager' %}
+<!-- Секция телеметрии БД -->
+<div class="db-card" style="margin-top: 24px;">
+    <div class="db-card-header" style="background: #fafafa; border-bottom: 1px solid var(--border); padding: 16px 20px;">
+        <span class="db-card-title">
+            <i class="ph ph-activity" style="color: var(--primary); font-size: 18px;"></i>
+            Нагрузка базы данных Firestore (за последние 24 часа)
+        </span>
+        <div style="display: flex; gap: 12px; align-items: center;">
+            <span class="db-badge db-badge-primary" id="telemetryStatus" style="font-size: 11px;">Обновление...</span>
+        </div>
+    </div>
+    <div style="padding: 20px; display: grid; grid-template-columns: 280px 1fr; gap: 24px; align-items: start;">
+        <!-- Левая колонка со сводной статистикой и лимитами -->
+        <div style="display: flex; flex-direction: column; gap: 16px;">
+            <!-- Метрика: Чтения -->
+            <div style="background: #f8fafc; border: 1px solid var(--border); border-radius: 12px; padding: 14px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                    <span style="font-size: 12px; font-weight: 600; color: var(--text-muted);">ЧТЕНИЯ (READS)</span>
+                    <i class="ph ph-eye" style="font-size: 16px; color: var(--primary);"></i>
+                </div>
+                <div style="font-size: 24px; font-weight: 800; color: var(--text-main);" id="telemetryReads">0</div>
+                <div style="font-size: 11px; color: var(--text-muted); margin-top: 2px;">Лимит Spark Plan: 50,000 / день</div>
+                
+                <!-- Прогресс лимита -->
+                <div style="width: 100%; height: 6px; background-color: #e2e8f0; border-radius: 3px; overflow: hidden; margin-top: 10px;">
+                    <div id="telemetryLimitBar" style="width: 0%; height: 100%; background-color: var(--primary); transition: width 0.3s;"></div>
+                </div>
+                <div style="display: flex; justify-content: space-between; font-size: 10px; font-weight: 600; margin-top: 4px; color: var(--text-muted);">
+                    <span id="telemetryLimitPercent">0%</span>
+                    <span>50k лимит</span>
+                </div>
+            </div>
+
+            <!-- Метрика: Записи -->
+            <div style="background: #f8fafc; border: 1px solid var(--border); border-radius: 12px; padding: 14px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                    <span style="font-size: 12px; font-weight: 600; color: var(--text-muted);">ЗАПИСИ (WRITES)</span>
+                    <i class="ph ph-pencil-line" style="font-size: 16px; color: var(--success);"></i>
+                </div>
+                <div style="font-size: 24px; font-weight: 800; color: var(--text-main);" id="telemetryWrites">0</div>
+                <div style="font-size: 11px; color: var(--text-muted); margin-top: 2px;">Лимит Spark Plan: 20,000 / день</div>
+            </div>
+
+            <!-- Метрика: Удаления -->
+            <div style="background: #f8fafc; border: 1px solid var(--border); border-radius: 12px; padding: 14px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                    <span style="font-size: 12px; font-weight: 600; color: var(--text-muted);">УДАЛЕНИЯ (DELETES)</span>
+                    <i class="ph ph-trash" style="font-size: 16px; color: var(--danger);"></i>
+                </div>
+                <div style="font-size: 24px; font-weight: 800; color: var(--text-main);" id="telemetryDeletes">0</div>
+                <div style="font-size: 11px; color: var(--text-muted); margin-top: 2px;">Лимит Spark Plan: 20,000 / день</div>
+            </div>
+            
+            <div id="telemetryLimitWarning" style="display: none; padding: 10px 12px; background: var(--danger-bg); border: 1px solid #fee2e2; border-radius: 10px; color: var(--danger); font-size: 12px; font-weight: 500;">
+                <i class="ph ph-warning-octagon" style="margin-right: 4px; vertical-align: middle;"></i>
+                Лимит бесплатных чтений Firestore превышен! Рекомендуется оптимизация.
+            </div>
+        </div>
+        
+        <!-- Правая колонка с графиком -->
+        <div style="position: relative; height: 320px; width: 100%;">
+            <canvas id="dbTelemetryChart"></canvas>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- Модальное окно создания/редактирования новости -->
+{% if user_role == 'admin' or user_role == 'inventory_manager' %}
+<div id="newsModal" class="modal-overlay" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(17, 24, 39, 0.4); backdrop-filter: blur(4px); z-index: 1000; justify-content: center; align-items: center;">
+    <div class="modal-content" style="background: white; border-radius: 20px; padding: 28px; width: 480px; max-width: 90vw; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1); display: flex; flex-direction: column; gap: 16px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+            <h3 id="newsModalTitle" style="margin: 0; font-size: 18px; font-weight: 700; color: var(--text-main);">Новая новость</h3>
+            <button onclick="closeNewsModal()" style="background: none; border: none; font-size: 24px; cursor: pointer; color: var(--text-muted);">&times;</button>
+        </div>
+        
+        <input type="hidden" id="newsIdInput" value="">
+        
+        <div>
+            <label style="font-size: 13px; font-weight: 600; color: var(--text-main); display: block; margin-bottom: 6px;">Заголовок:</label>
+            <input type="text" id="newsTitleInput" placeholder="Введите заголовок..." style="width: 100%; padding: 10px 12px; border: 1px solid var(--border); border-radius: 10px; font-size: 14px; outline: none; box-sizing: border-box;">
+        </div>
+        
+        <div>
+            <label style="font-size: 13px; font-weight: 600; color: var(--text-main); display: block; margin-bottom: 6px;">Содержание:</label>
+            <textarea id="newsContentInput" placeholder="Введите текст новости..." rows="4" style="width: 100%; padding: 10px 12px; border: 1px solid var(--border); border-radius: 10px; font-size: 14px; outline: none; font-family: inherit; resize: vertical; box-sizing: border-box;"></textarea>
+        </div>
+        
+        <div>
+            <label style="font-size: 13px; font-weight: 600; color: var(--text-main); display: block; margin-bottom: 6px;">Категория:</label>
+            <div style="display: flex; gap: 8px;">
+                <button type="button" class="tag-chip" data-tag="TODAY" onclick="selectNewsTag('TODAY')" style="flex: 1; padding: 8px; border-radius: 10px; border: 1px solid var(--border); background: white; font-weight: 600; font-size: 12px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 4px;">
+                    <i class="ph ph-bell" style="font-size: 14px;"></i> Сегодня
+                </button>
+                <button type="button" class="tag-chip" data-tag="TOMORROW" onclick="selectNewsTag('TOMORROW')" style="flex: 1; padding: 8px; border-radius: 10px; border: 1px solid var(--border); background: white; font-weight: 600; font-size: 12px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 4px;">
+                    <i class="ph ph-calendar-blank" style="font-size: 14px;"></i> Завтра
+                </button>
+                <button type="button" class="tag-chip" data-tag="URGENT" onclick="selectNewsTag('URGENT')" style="flex: 1; padding: 8px; border-radius: 10px; border: 1px solid var(--border); background: white; font-weight: 600; font-size: 12px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 4px;">
+                    <i class="ph ph-warning-octagon" style="font-size: 14px;"></i> Срочно
+                </button>
+                <button type="button" class="tag-chip" data-tag="GENERAL" onclick="selectNewsTag('GENERAL')" style="flex: 1; padding: 8px; border-radius: 10px; border: 1px solid var(--border); background: white; font-weight: 600; font-size: 12px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 4px;">
+                    <i class="ph ph-info" style="font-size: 14px;"></i> Общее
+                </button>
+            </div>
+        </div>
+        
+        <div style="display: flex; gap: 12px; margin-top: 12px;">
+            <button id="deleteNewsBtn" onclick="deleteNewsItem()" style="padding: 12px; border: 1px solid var(--danger); border-radius: 12px; background: white; color: var(--danger); font-weight: 600; cursor: pointer; display: none; display: flex; align-items: center; justify-content: center;">
+                <i class="ph ph-trash" style="font-size: 16px;"></i>
+            </button>
+            <button onclick="closeNewsModal()" style="flex: 1; padding: 12px; border: 1px solid var(--border); border-radius: 12px; background: white; color: var(--text-main); font-weight: 600; cursor: pointer;">Отмена</button>
+            <button id="saveNewsBtn" onclick="saveNewsItem()" style="flex: 2; padding: 12px; border: none; border-radius: 12px; background: var(--primary); color: white; font-weight: 600; cursor: pointer; box-shadow: 0 4px 6px rgba(37, 99, 235, 0.2);">Сохранить</button>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- Подключаем библиотеки -->
+<script src="/static/js/db-cache.js"></script>
+<script src="/static/js/realtime.js"></script>
+
+<script>
+    var autoRefreshInterval;
+    var isRefreshing = false;
+    var statusColors = {
+        'CREATED': 'primary', 'PROCESSING': 'warning', 'READY': 'success',
+        'COMPLETED': 'gray', 'CANCELLED': 'danger'
+    };
+    var statusTexts = {
+        'CREATED': 'Новый', 'PROCESSING': 'В работе', 'READY': 'Собран',
+        'COMPLETED': 'Выдан', 'CANCELLED': 'Отменён'
+    };
+
+    // Обновление времени
+    function updateTime() {
+        const now = new Date();
+        document.getElementById('lastUpdateTime').innerHTML = 
+            'Обновлено: <strong>' + now.toLocaleTimeString('ru', { hour: '2-digit', minute: '2-digit', second: '2-digit' }) + '</strong>';
+    }
+    updateTime();
+
+    // Плавная анимация счётчика с использованием библиотеки CountUp.js
+    function animateCount(elementId, start, end, duration = 0.8) {
+        if (typeof countUp === 'undefined' || !countUp.CountUp) {
+            // Фолбэк, если библиотека не загрузилась
+            const obj = document.getElementById(elementId);
+            if (obj) obj.textContent = parseInt(end).toLocaleString('ru');
+            return;
+        }
+        
+        const options = {
+            startVal: parseInt(start) || 0,
+            duration: duration,
+            useEasing: true,
+            useGrouping: true,
+            separator: ' ',
+            decimal: '.'
+        };
+        
+        const demo = new countUp.CountUp(elementId, parseInt(end) || 0, options);
+        if (!demo.error) {
+            demo.start();
+        } else {
+            console.error("CountUp error:", demo.error);
+            const obj = document.getElementById(elementId);
+            if (obj) obj.textContent = parseInt(end).toLocaleString('ru');
+        }
+    }
+
+    // Обновление HTML с плавным исчезновением/появлением
+    function updateContainerHTML(containerId, newHTML) {
+        const container = document.getElementById(containerId);
+        if (!container) return;
+        if (container.innerHTML.trim() === newHTML.trim()) return;
+        
+        container.style.transition = 'opacity 0.15s ease';
+        container.style.opacity = '0.3';
+        setTimeout(() => {
+            container.innerHTML = newHTML;
+            container.style.opacity = '1';
+        }, 150);
+    }
+
+    // Загрузка кэшированного состояния из localStorage
+    function loadCachedDashboard() {
+        try {
+            const cachedStats = JSON.parse(localStorage.getItem('dashboard_stats') || '{}');
+            document.getElementById('totalItems').textContent = (cachedStats.totalItems || 0).toLocaleString('ru');
+            document.getElementById('lowStockCount').textContent = (cachedStats.lowStockCount || 0).toLocaleString('ru');
+            document.getElementById('activeOrders').textContent = (cachedStats.activeOrders || 0).toLocaleString('ru');
+            document.getElementById('todayOperations').textContent = (cachedStats.todayOperations || 0).toLocaleString('ru');
+            
+            const cachedHTML = JSON.parse(localStorage.getItem('dashboard_html') || '{}');
+            if (cachedHTML.lowStock) document.getElementById('lowStockContainer').innerHTML = cachedHTML.lowStock;
+            if (cachedHTML.catalog) document.getElementById('catalogContainer').innerHTML = cachedHTML.catalog;
+            if (cachedHTML.orders) document.getElementById('ordersContainer').innerHTML = cachedHTML.orders;
+            if (cachedHTML.news) document.getElementById('newsItemsList').innerHTML = cachedHTML.news;
+        } catch (e) {
+            console.warn("Ошибка загрузки кэша дашборда:", e);
+        }
+    }
+    loadCachedDashboard();
+
+    /**
+     * ОПТИМИЗИРОВАННАЯ СИНХРОНИЗАЦИЯ:
+     * - Остатки, критический запас и быстрый доступ берутся за 0мс из IndexedDB (кэша)!
+     * - По сети запрашиваются только сверхлегкие списки заказов и логов (с лимитом).
+     */
+    async function refreshDashboardData() {
+        if (!document.getElementById('totalItems')) {
+            stopAutoRefresh();
+            return;
+        }
+        if (isRefreshing) return;
+        isRefreshing = true;
+        const refreshBtn = document.getElementById('manualRefreshBtn');
+        if (refreshBtn) {
+            refreshBtn.innerHTML = '<i class="ph ph-spinner" style="font-size: 16px; animation: spin 1s linear infinite;"></i> Обновление...';
+            refreshBtn.disabled = true;
+        }
+
+        try {
+            let totalItems = 0;
+            let lowStockCount = 0;
+            let lowStockHTML = '';
+            let catalogHTML = '';
+
+            // Если IndexedDB локальная база готова - читаем остатки из нее
+            if (typeof localDB !== 'undefined' && localDB) {
+                const items = await localDB.items.toArray();
+                
+                // Подсчет локальных метрик
+                totalItems = items.reduce((sum, i) => sum + (i.stockCount || 0), 0);
+                const lowStock = items.filter(i => (i.stockCount || 0) < (i.lowStockThreshold || 10));
+                lowStockCount = lowStock.length;
+
+                // Формируем HTML критического запаса
+                if (lowStock.length > 0) {
+                    lowStockHTML = lowStock.slice(0, 5).map(item => `
+                        <div class="db-list-item" style="cursor: pointer;" onclick="location.href='/desktop/part_detail?id=${item.id}'">
+                            <div style="width: 44px; height: 44px; border-radius: 8px; background: var(--bg-main); border: 1px solid var(--border); display: flex; align-items: center; justify-content: center; overflow: hidden; flex-shrink: 0; margin-right: 12px;">
+                                ${item.imageUrl && !item.imageUrl.includes('placeholder')
+                                    ? `<img src="${item.imageUrl}" style="width: 100%; height: 100%; object-fit: contain; padding: 4px;" onerror="this.style.display='none';this.parentElement.innerHTML='<i class=\\'ph ph-package\\' style=\\'font-size: 20px; color: #9ca3af;\\'></i>'">`
+                                    : `<i class="ph ph-package" style="font-size: 20px; color: #9ca3af;"></i>`
+                                }
+                            </div>
+                            <div style="min-width: 0; flex: 1;">
+                                <div style="font-weight: 600; font-size: 14px; color: var(--text-main); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${item.shortName || item.name || 'Без названия'}</div>
+                                <div style="font-size: 12px; color: var(--text-muted); margin-top: 2px;">${item.sku || '—'} · Порог: ${item.lowStockThreshold || 10} ${item.unit || 'шт'}</div>
+                            </div>
+                            <div style="display: flex; align-items: center; gap: 8px; flex-shrink: 0; margin-left: 12px;">
+                                <span class="db-badge db-badge-danger" style="font-size: 12px;">Остаток: ${item.stockCount || 0} ${item.unit || 'шт'}</span>
+                            </div>
+                        </div>
+                    `).join('');
+                } else {
+                    lowStockHTML = `
+                        <div style="text-align: center; padding: 48px 20px;">
+                            <div style="width: 64px; height: 64px; background: var(--success-bg); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 12px;">
+                                <i class="ph ph-check-circle" style="font-size: 28px; color: var(--success);"></i>
+                            </div>
+                            <p style="color: var(--text-muted); font-weight: 500;">Всё в порядке — запасы достаточны</p>
+                        </div>
+                    `;
+                }
+
+                // Формируем HTML быстрого доступа
+                if (items.length > 0) {
+                    catalogHTML = `
+                        <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px;">
+                            ${items.slice(0, 6).map(item => `
+                                <div onclick="location.href='/desktop/part_detail?id=${item.id}'" style="background: white; border: 1px solid var(--border); border-radius: 12px; padding: 12px; cursor: pointer; transition: all 0.2s; text-align: center; box-shadow: 0 1px 2px rgba(0,0,0,0.02); display: flex; flex-direction: column; align-items: center; justify-content: space-between; height: 100%;">
+                                    <div style="width: 100%; height: 70px; background: var(--bg-main); border-radius: 8px; display: flex; align-items: center; justify-content: center; overflow: hidden; margin-bottom: 8px;">
+                                        ${item.imageUrl && !item.imageUrl.includes('placeholder')
+                                            ? `<img src="${item.imageUrl}" style="width: 100%; height: 100%; object-fit: contain; padding: 8px;" onerror="this.style.display='none';this.parentElement.innerHTML='<i class=\\'ph ph-package\\' style=\\'font-size: 28px; color: #9ca3af;\\'></i>'">`
+                                            : `<i class="ph ph-package" style="font-size: 28px; color: #9ca3af;"></i>`
+                                        }
+                                    </div>
+                                    <div style="width: 100%; font-size: 12px; font-weight: 600; color: var(--text-main); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 2px;" title="${item.shortName || item.fullName || 'Без названия'}">${item.shortName || item.fullName || 'Без названия'}</div>
+                                    <div style="font-size: 11px; color: var(--text-muted); margin-bottom: 6px;">${item.sku || '—'}</div>
+                                    <div style="font-size: 13px; font-weight: 700; color: var(--primary);">${item.stockCount || 0} ${item.unit || 'шт'}</div>
+                                </div>
+                            `).join('')}
+                        </div>
+                    `;
+                } else {
+                    catalogHTML = `<div style="text-align: center; padding: 20px; color: var(--text-muted);"><p>Нет товаров для отображения</p></div>`;
+                }
+
+                updateContainerHTML('lowStockContainer', lowStockHTML);
+                updateContainerHTML('catalogContainer', catalogHTML);
+            } else {
+                setTimeout(refreshDashboardData, 1000);
+            }
+
+            // Скачиваем заказы, логи и новости
+            const [ordersRes, logsRes, newsRes] = await Promise.all([
+                fetch('/api/warehouse/orders?limit=10'),
+                fetch('/api/warehouse/logs?limit=10'),
+                fetch('/api/warehouse/news')
+            ]);
+            
+            const orders = await ordersRes.json();
+            const logs = await logsRes.json();
+            const newsItems = await newsRes.json();
+
+            // Рендер новостей
+            const newsContainer = document.getElementById('newsContainer');
+            const newsItemsList = document.getElementById('newsItemsList');
+            let newsHTML = '';
+            if (newsContainer && newsItemsList) {
+                globalNewsItems = newsItems; // Обновляем глобальный кэш новостей
+                if (newsItems && newsItems.length > 0) {
+                    newsContainer.style.display = 'block';
+                    newsHTML = newsItems.map(news => {
+                        const tag = (news.tag || 'GENERAL').toUpperCase();
+                        let badgeHtml = '';
+                        if (tag === 'URGENT') {
+                            badgeHtml = '<span class="db-badge db-badge-danger" style="font-size: 10px; font-weight: 700;"><i class="ph ph-warning-octagon" style="font-size: 12px;"></i> Срочно</span>';
+                        } else if (tag === 'TOMORROW') {
+                            badgeHtml = '<span class="db-badge db-badge-success" style="font-size: 10px; font-weight: 700;"><i class="ph ph-calendar-blank" style="font-size: 12px;"></i> Завтра</span>';
+                        } else if (tag === 'TODAY') {
+                            badgeHtml = '<span class="db-badge db-badge-primary" style="font-size: 10px; font-weight: 700;"><i class="ph ph-bell" style="font-size: 12px;"></i> Сегодня</span>';
+                        } else {
+                            badgeHtml = '<span class="db-badge db-badge-gray" style="font-size: 10px; font-weight: 700;"><i class="ph ph-info" style="font-size: 12px;"></i> Общее</span>';
+                        }
+
+                        const cursorStyle = isUserAdminOrManager ? 'cursor: pointer;' : '';
+                        const onclickAttr = isUserAdminOrManager ? `onclick="openNewsModal('${news.id}')"` : '';
+
+                        return `
+                            <div style="background: #ffffff; border: 1px solid var(--border); border-radius: 12px; padding: 16px; box-shadow: 0 1px 2px rgba(0,0,0,0.02); display: flex; flex-direction: column; justify-content: space-between; transition: all 0.2s; ${cursorStyle}" ${onclickAttr} class="news-item-card">
+                                <div>
+                                    <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 10px; gap: 8px;">
+                                        <h4 style="font-weight: 700; font-size: 15px; color: var(--text-main); margin: 0; line-height: 1.4;">${news.title || ''}</h4>
+                                        ${badgeHtml}
+                                    </div>
+                                    <p style="font-size: 13px; color: var(--text-muted); line-height: 1.5; margin: 0; white-space: pre-line;">${news.content || ''}</p>
+                                </div>
+                            </div>
+                        `;
+                    }).join('');
+                } else {
+                    if (isUserAdminOrManager) {
+                        newsContainer.style.display = 'block';
+                        newsHTML = '<div style="grid-column: 1/-1; text-align: center; padding: 24px; color: var(--text-muted); font-size: 14px;">Нет активных новостей склада.</div>';
+                    } else {
+                        newsContainer.style.display = 'none';
+                    }
+                }
+                updateContainerHTML('newsItemsList', newsHTML);
+            }
+
+            const activeOrders = orders.filter(o => ['CREATED', 'PROCESSING', 'READY'].includes(o.status));
+            const activeOrdersCount = activeOrders.length;
+            const todayOperationsCount = logs.length;
+
+            // Читаем старые значения из кэша для анимации счетчиков
+            const prevStats = JSON.parse(localStorage.getItem('dashboard_stats') || '{}');
+            animateCount('totalItems', prevStats.totalItems || 0, totalItems);
+            animateCount('lowStockCount', prevStats.lowStockCount || 0, lowStockCount);
+            animateCount('activeOrders', prevStats.activeOrders || 0, activeOrdersCount);
+            animateCount('todayOperations', prevStats.todayOperations || 0, todayOperationsCount);
+
+            // Сохраняем новые значения в кэш
+            localStorage.setItem('dashboard_stats', JSON.stringify({
+                totalItems: totalItems,
+                lowStockCount: lowStockCount,
+                activeOrders: activeOrdersCount,
+                todayOperations: todayOperationsCount
+            }));
+
+            // Рендер активных заказов
+            const ordersContainer = document.getElementById('ordersContainer');
+            let ordersHTML = '';
+            if (activeOrders.length > 0) {
+                ordersHTML = activeOrders.slice(0, 5).map(order => {
+                    const itemsText = order.items && Array.isArray(order.items)
+                        ? order.items.map(i => `${i.itemName || ''} (${i.quantity || 0} ${i.unit || 'шт'})`).join(', ')
+                        : (order.items_text || '');
+                    const statusText = statusTexts[order.status] || 'Создан';
+                    const statusColor = statusColors[order.status] || 'primary';
+                    const time = order.createdAt ? new Date(order.createdAt).toLocaleTimeString('ru', { hour: '2-digit', minute: '2-digit' }) : (order.time || '');
+                    const userName = order.userName || order.user_name || 'Пользователь';
+
+                    return `
+                        <div class="db-list-item" style="cursor: pointer;" onclick="location.href='/desktop/transactions'">
+                            <div style="width: 40px; height: 40px; border-radius: 10px; background: var(--bg-main); display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-right: 12px; border: 1px solid var(--border);">
+                                <i class="ph ph-user" style="font-size: 18px; color: var(--text-muted);"></i>
+                            </div>
+                            <div style="min-width: 0; flex: 1;">
+                                <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+                                    <span class="db-badge db-badge-${statusColor}">${statusText}</span>
+                                    <span style="font-weight: 600; font-size: 14px; color: var(--text-main);">${userName}</span>
+                                </div>
+                                <div style="font-size: 12px; color: var(--text-muted); margin-top: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${itemsText.substring(0, 70)}</div>
+                            </div>
+                            <div style="font-size: 12px; color: var(--text-muted); flex-shrink: 0; margin-left: 12px; font-weight: 500;">${time}</div>
+                        </div>
+                    `;
+                }).join('');
+            } else {
+                ordersHTML = `<div style="text-align: center; padding: 48px 20px;"><div style="width: 64px; height: 64px; background: #f3f4f6; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 12px;"><i class="ph ph-shopping-cart" style="font-size: 28px; color: #9ca3af;"></i></div><p style="color: var(--text-muted); font-weight: 500;">Нет активных заказов</p></div>`;
+            }
+            updateContainerHTML('ordersContainer', ordersHTML);
+
+            // Сохраняем сверстанные HTML-блоки в кэш
+            localStorage.setItem('dashboard_html', JSON.stringify({
+                lowStock: lowStockHTML,
+                catalog: catalogHTML,
+                orders: ordersHTML,
+                news: newsHTML
+            }));
+
+            updateTime();
+            {% set role_str = user_role.value if user_role.value is defined else user_role %}
+            if (('{{ role_str }}' === 'admin' || '{{ role_str }}' === 'inventory_manager') && typeof loadDbTelemetry === 'function') {
+                loadDbTelemetry();
+            }
+        } catch (e) {
+            console.error('Ошибка обновления дашборда:', e);
+        } finally {
+            isRefreshing = false;
+            if (refreshBtn) {
+                refreshBtn.innerHTML = '<i class="ph ph-arrow-clockwise"></i> Обновить';
+                refreshBtn.disabled = false;
+            }
+        }
+    }
+
+    /** Callback для db-cache.js */
+    async function triggerUIRefresh() {
+        if (typeof localDB !== 'undefined' && localDB) {
+            await refreshDashboardData();
+        }
+    }
+
+    document.getElementById('manualRefreshBtn')?.addEventListener('click', refreshDashboardData);
+
+    function startAutoRefresh() {
+        if (autoRefreshInterval) clearInterval(autoRefreshInterval);
+        autoRefreshInterval = setInterval(refreshDashboardData, 60000);
+    }
+    function stopAutoRefresh() {
+        if (autoRefreshInterval) clearInterval(autoRefreshInterval);
+    }
+
+    // ==========================================
+    // REAL-TIME ЛЕНТА СОБЫТИЙ
+    // ==========================================
+
+    /**
+     * Добавляет новый лог в real-time ленту в правой колонке
+     */
+    function addLogToFeed(log) {
+        const feed = document.getElementById('liveFeed');
+        if (!feed) return;
+
+        const isTake = (log.quantityChange || 0) < 0;
+        const qty = Math.abs(log.quantityChange || 0);
+        const recipientName = log.recipientName || log.userName || log.user_name || 'Сотрудник';
+        const issuerName = log.issuerName || '';
+        const itemName = log.itemName || log.item_name || 'Товар';
+        const now = new Date();
+        const timeStr = log.timestamp 
+            ? new Date(log.timestamp).toLocaleTimeString('ru', { hour: '2-digit', minute: '2-digit' }) 
+            : now.toLocaleTimeString('ru', { hour: '2-digit', minute: '2-digit' });
+        const isReturn = log.notes && log.notes.startsWith('ВОЗВРАТ');
+
+        // Определяем цвет и иконку
+        let bgColor, icon, actionText, borderColor;
+        if (isReturn) {
+            bgColor = '#f0fdf4'; icon = 'ph-arrow-counter-clockwise'; actionText = 'вернул';
+            borderColor = '#bbf7d0'; textColor = '#16a34a';
+        } else if (isTake) {
+            bgColor = '#fef2f2'; icon = 'ph-arrow-up-right'; actionText = 'получил';
+            borderColor = '#fecaca'; textColor = '#dc2626';
+        } else {
+            bgColor = '#f0fdf4'; icon = 'ph-plus-circle'; actionText = 'добавил';
+            borderColor = '#bbf7d0'; textColor = '#16a34a';
+        }
+
+        const logHtml = `
+            <div class="live-feed-item" style="display: flex; align-items: center; gap: 10px; padding: 10px 14px; background: ${bgColor}; border-radius: 10px; border: 1px solid ${borderColor}; margin-bottom: 6px; animation: fadeIn 0.3s ease;">
+                <div style="width: 32px; height: 32px; border-radius: 50%; background: white; display: flex; align-items: center; justify-content: center; flex-shrink: 0; color: ${textColor}; font-size: 16px;">
+                    <i class="ph ${icon}"></i>
+                </div>
+                <div style="min-width: 0; flex: 1; font-size: 13px;">
+                    <div style="font-weight: 600; color: var(--text-main);">
+                        ${recipientName}
+                        ${issuerName ? `<span style="color: var(--text-muted); font-weight: 400;"> ← ${issuerName}</span>` : ''}
+                    </div>
+                    <div style="color: var(--text-muted); font-size: 12px; margin-top: 2px;">
+                        ${itemName} <span style="font-weight: 600; color: ${textColor};">${isTake || isReturn ? '' : '+'}${qty} шт</span>
+                    </div>
+                </div>
+                <div style="font-size: 11px; color: var(--text-muted); flex-shrink: 0;">${timeStr}</div>
+            </div>
+        `;
+
+        // Добавляем в начало списка
+        feed.insertAdjacentHTML('afterbegin', logHtml);
+
+        // Удаляем старые, оставляя максимум 20
+        while (feed.children.length > 20) {
+            feed.removeChild(feed.lastChild);
+        }
+    }
+
+    /**
+     * Callback из realtime.js — новый лог пришёл через onSnapshot
+     */
+    function onNewLog(log) {
+        addLogToFeed(log);
+        
+        // Обновляем счётчик todayOperations
+        const counter = document.getElementById('todayOperations');
+        if (counter) {
+            counter.textContent = parseInt(counter.textContent || '0') + 1;
+        }
+    }
+
+    /**
+     * Callback для статуса real-time подключения
+     */
+    function onConnectionChange(connected) {
+        const indicator = document.getElementById('realtimeStatus');
+        if (!indicator) return;
+        if (connected) {
+            indicator.innerHTML = '<span style="color: var(--success);">●</span> Real-time';
+            indicator.title = 'Подключено к Firestore в реальном времени';
+        } else {
+            indicator.innerHTML = '<span style="color: var(--text-muted);">○</span> REST API';
+            indicator.title = 'Работа через REST API (обновление раз в 60 сек)';
+        }
+    }
+
+    // ==========================================
+    // ФОРМА ВЫДАЧИ (ISSUE FORM)
+    // ==========================================
+
+    let employeesCache = [];
+
+    /**
+     * Загружает список сотрудников для формы выдачи
+     */
+    async function loadEmployees() {
+        const select = document.getElementById('recipientSelect');
+        if (!select) return;
+        
+        const saved = select.dataset.loaded;
+        if (saved === '1') return;
+        
+        try {
+            const users = await window.realtime.fetchEmployees();
+            employeesCache = users;
+            
+            select.innerHTML = '<option value="">👤 Выберите сотрудника...</option>' + 
+                users.map(u => `<option value="${u.id || u.username}">${u.displayName || u.username || 'Без имени'} (${u.role || 'staff'})</option>`).join('');
+            select.dataset.loaded = '1';
+        } catch (e) {
+            console.warn("⚠️ Не удалось загрузить сотрудников:", e);
+        }
+    }
+
+    /**
+     * Поиск товара по названию/SKU
+     */
+    let searchTimeout;
+    function onItemSearch() {
+        clearTimeout(searchTimeout);
+        searchTimeout = setTimeout(async () => {
+            const input = document.getElementById('itemSearch');
+            const results = document.getElementById('itemSearchResults');
+            const query = input.value.trim();
+            
+            if (query.length < 2) {
+                results.innerHTML = '';
+                return;
+            }
+            
+            try {
+                const items = await window.realtime.fetchItems(query);
+                results.style.display = 'block';
+                results.innerHTML = items.map(item => `
+                    <div class="item-result" onclick="selectItem('${item.id}', '${item.shortName || item.fullName || 'Без названия'}', ${item.stockCount || 0}, '${item.unit || 'шт'}')" 
+                         style="padding: 8px 12px; cursor: pointer; border-bottom: 1px solid #f0f0f0; display: flex; justify-content: space-between; align-items: center;">
+                        <span style="font-weight: 500;">${item.shortName || item.fullName || 'Без названия'}</span>
+                        <span style="font-size: 12px; color: var(--text-muted);">${item.sku || '—'} · Ост: ${item.stockCount || 0} ${item.unit || 'шт'}</span>
+                    </div>
+                `).join('');
+                
+                if (items.length === 0) {
+                    results.innerHTML = '<div style="padding: 12px; color: var(--text-muted); text-align: center;">Ничего не найдено</div>';
+                }
+            } catch (e) {
+                console.warn("⚠️ Ошибка поиска:", e);
+            }
+        }, 300);
+    }
+
+    let selectedItemId = null;
+    let selectedItemName = '';
+    let selectedItemStock = 0;
+    let selectedItemUnit = 'шт';
+
+    function selectItem(id, name, stock, unit) {
+        selectedItemId = id;
+        selectedItemName = name;
+        selectedItemStock = stock;
+        selectedItemUnit = unit;
+        
+        document.getElementById('itemSearch').value = name;
+        document.getElementById('itemSearchResults').innerHTML = '';
+        document.getElementById('selectedItemInfo').innerHTML = `
+            <span style="font-weight: 600; color: var(--primary);">${name}</span>
+            <span style="font-size: 12px; color: var(--text-muted);">Остаток: ${stock} ${unit}</span>
+        `;
+        document.getElementById('issueBtn').disabled = false;
+    }
+
+    /**
+     * Выполнить выдачу
+     */
+    async function confirmIssue() {
+        const recipientSelect = document.getElementById('recipientSelect');
+        const qtyInput = document.getElementById('issueQty');
+        const notesInput = document.getElementById('issueNotes');
+        const btn = document.getElementById('issueBtn');
+        
+        const recipientId = recipientSelect.value;
+        const recipientName = recipientSelect.options[recipientSelect.selectedIndex]?.text.split(' (')[0] || '';
+        const quantity = parseInt(qtyInput.value) || 1;
+        const notes = notesInput.value.trim();
+
+        if (!recipientId) { showToast('❌ Выберите сотрудника'); return; }
+        if (!selectedItemId) { showToast('❌ Выберите товар'); return; }
+        if (quantity > selectedItemStock) { showToast(`❌ Недостаточно! Остаток: ${selectedItemStock}`); return; }
+
+        btn.disabled = true;
+        btn.innerHTML = '<i class="ph ph-spinner" style="animation: spin 1s linear infinite;"></i> Обработка...';
+
+        try {
+            const result = await window.realtime.issueItem(selectedItemId, quantity, recipientName, recipientId, notes);
+            if (result.success) {
+                showToast(`✅ ${result.message}`);
+                // Сброс формы
+                selectedItemId = null;
+                document.getElementById('itemSearch').value = '';
+                document.getElementById('itemSearchResults').innerHTML = '';
+                document.getElementById('selectedItemInfo').innerHTML = '';
+                qtyInput.value = '1';
+                notesInput.value = '';
+                // Обновим остатки
+                refreshDashboardData();
+            } else {
+                showToast(`❌ ${result.detail || result.message}`);
+            }
+        } catch (e) {
+            showToast('❌ Ошибка сети');
+        }
+
+        btn.disabled = false;
+        btn.innerHTML = '<i class="ph ph-hand-truck"></i> Выдать';
+    }
+
+    function showToast(msg) {
+        const toast = document.getElementById('issueToast');
+        if (!toast) {
+            // Создаём если нет
+            const t = document.createElement('div');
+            t.id = 'issueToast';
+            t.style.cssText = 'position: fixed; bottom: 32px; left: 50%; transform: translateX(-50%); background: #1f2937; color: white; padding: 14px 28px; border-radius: 12px; font-size: 14px; font-weight: 500; z-index: 2000; box-shadow: 0 10px 25px rgba(0,0,0,0.2); max-width: 90vw;';
+            t.textContent = msg;
+            document.body.appendChild(t);
+            setTimeout(() => t.remove(), 3000);
+        } else {
+            toast.textContent = msg;
+            toast.style.display = 'block';
+            setTimeout(() => { toast.style.display = 'none'; }, 3000);
+        }
+    }
+
+    // ==========================================
+    // ИНИЦИАЛИЗАЦИЯ
+    // ==========================================
+
+    function init() {
+        // Real-time подписка
+        if (window.realtime) {
+            window.realtime.setOnNewLog(onNewLog);
+            window.realtime.setOnConnectionChange(onConnectionChange);
+        }
+
+        // Загружаем сотрудников для формы выдачи
+        loadEmployees();
+
+        // Автообновление
+        startAutoRefresh();
+        window.addEventListener('beforeunload', stopAutoRefresh);
+        
+        // Первичная загрузка
+        setTimeout(refreshDashboardData, 200);
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', init);
+    } else {
+        init();
+    }
+    document.getElementById('manualRefreshBtn')?.addEventListener('click', refreshDashboardData);
+
+    const styleSheet = document.createElement('style');
+    styleSheet.textContent = `
+        @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+        @keyframes fadeIn { from { opacity: 0; transform: translateX(-10px); } to { opacity: 1; transform: translateX(0); } }
+        .live-feed-item:first-child { animation: fadeIn 0.3s ease; }
+        .item-result:hover { background: var(--primary-bg); }
+    `;
+    document.head.appendChild(styleSheet);
+
+    // ==========================================
+    // УПРАВЛЕНИЕ НОВОСТЯМИ (NEWS CRUD)
+    // ==========================================
+
+    let selectedNewsTag = 'GENERAL';
+    let globalNewsItems = {{ news_items|tojson|safe if news_items else '[]' }};
+    const isUserAdminOrManager = {% if user_role == 'admin' or user_role == 'inventory_manager' %}true{% else %}false{% endif %};
+
+    function selectNewsTag(tag) {
+        selectedNewsTag = tag;
+        document.querySelectorAll('.tag-chip').forEach(btn => {
+            btn.classList.remove('active');
+            if (btn.dataset.tag === tag) {
+                btn.classList.add('active');
+            }
+        });
+    }
+
+    function openNewsModal(newsId = null) {
+        if (!isUserAdminOrManager) return;
+        
+        const modal = document.getElementById('newsModal');
+        if (!modal) return;
+        
+        modal.style.display = 'flex';
+        
+        if (newsId) {
+            // Редактирование
+            const news = globalNewsItems.find(n => n.id === newsId);
+            if (!news) return;
+            
+            document.getElementById('newsModalTitle').textContent = 'Редактировать новость';
+            document.getElementById('newsIdInput').value = news.id;
+            document.getElementById('newsTitleInput').value = news.title || '';
+            document.getElementById('newsContentInput').value = news.content || '';
+            selectNewsTag((news.tag || 'GENERAL').toUpperCase());
+            document.getElementById('deleteNewsBtn').style.display = 'flex';
+        } else {
+            // Создание
+            document.getElementById('newsModalTitle').textContent = 'Новая новость';
+            document.getElementById('newsIdInput').value = '';
+            document.getElementById('newsTitleInput').value = '';
+            document.getElementById('newsContentInput').value = '';
+            selectNewsTag('TODAY');
+            document.getElementById('deleteNewsBtn').style.display = 'none';
+        }
+    }
+
+    function closeNewsModal() {
+        const modal = document.getElementById('newsModal');
+        if (modal) {
+            modal.style.display = 'none';
+        }
+    }
+
+    async function saveNewsItem() {
+        const id = document.getElementById('newsIdInput').value;
+        const title = document.getElementById('newsTitleInput').value.trim();
+        const content = document.getElementById('newsContentInput').value.trim();
+        const tag = selectedNewsTag;
+
+        if (!title || !content) {
+            showToast('❌ Заполните все поля');
+            return;
+        }
+
+        const btn = document.getElementById('saveNewsBtn');
+        btn.disabled = true;
+        btn.textContent = 'Сохранение...';
+
+        const url = id ? `/api/warehouse/news/${id}` : '/api/warehouse/news';
+        const method = id ? 'PUT' : 'POST';
+
+        try {
+            const res = await fetch(url, {
+                method: method,
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ title, content, tag })
+            });
+
+            if (res.ok) {
+                showToast(id ? '✅ Новость обновлена' : '✅ Новость создана');
+                closeNewsModal();
+                refreshDashboardData();
+            } else {
+                const data = await res.json();
+                showToast(`❌ ${data.detail || 'Ошибка сохранения'}`);
+            }
+        } catch (e) {
+            showToast('❌ Ошибка сети');
+        } finally {
+            btn.disabled = false;
+            btn.textContent = 'Сохранить';
+        }
+    }
+
+    async function deleteNewsItem() {
+        const id = document.getElementById('newsIdInput').value;
+        if (!id) return;
+
+        if (!confirm('Вы уверены, что хотите удалить эту новость?')) return;
+
+        const btn = document.getElementById('deleteNewsBtn');
+        btn.disabled = true;
+
+        try {
+            const res = await fetch(`/api/warehouse/news/${id}`, {
+                method: 'DELETE'
+            });
+
+            if (res.ok) {
+                showToast('✅ Новость удалена');
+                closeNewsModal();
+                refreshDashboardData();
+            } else {
+                const data = await res.json();
+                showToast(`❌ ${data.detail || 'Ошибка удаления'}`);
+            }
+        } catch (e) {
+            showToast('❌ Ошибка сети');
+        } finally {
+            btn.disabled = false;
+        }
+    }
+
+    // ==========================================
+    // ТЕЛЕМЕТРИЯ FIREBASE
+    // ==========================================
+    let telemetryChartInstance = null;
+
+    async function loadDbTelemetry() {
+        {% set role_str = user_role.value if user_role.value is defined else user_role %}
+        const role = '{{ role_str }}';
+        if (role !== 'admin' && role !== 'inventory_manager') return;
+        
+        try {
+            const res = await fetch(`/api/admin/db-telemetry?user_role=${role}`);
+            if (!res.ok) throw new Error("Telemetry fetch failed");
+            
+            const data = await res.json();
+            
+            // Обновляем статистику
+            const reads = data.summary.READ || 0;
+            const writes = data.summary.WRITE || 0;
+            const deletes = data.summary.DELETE || 0;
+            
+            document.getElementById('telemetryReads').textContent = reads.toLocaleString('ru');
+            document.getElementById('telemetryWrites').textContent = writes.toLocaleString('ru');
+            document.getElementById('telemetryDeletes').textContent = deletes.toLocaleString('ru');
+            
+            // Обновляем прогресс-бар лимита (50 000 чтений)
+            const limit = 50000;
+            const percent = Math.min(100, Math.round((reads / limit) * 100));
+            const limitBar = document.getElementById('telemetryLimitBar');
+            const limitPercent = document.getElementById('telemetryLimitPercent');
+            
+            if (limitBar && limitPercent) {
+                limitBar.style.width = percent + '%';
+                limitPercent.textContent = percent + '%';
+                
+                if (reads >= limit) {
+                    limitBar.style.backgroundColor = 'var(--danger)';
+                    document.getElementById('telemetryLimitWarning').style.display = 'block';
+                } else if (percent > 80) {
+                    limitBar.style.backgroundColor = 'var(--warning)';
+                    document.getElementById('telemetryLimitWarning').style.display = 'none';
+                } else {
+                    limitBar.style.backgroundColor = 'var(--primary)';
+                    document.getElementById('telemetryLimitWarning').style.display = 'none';
+                }
+            }
+            
+            const statusBadge = document.getElementById('telemetryStatus');
+            if (statusBadge) {
+                statusBadge.textContent = 'Активна';
+                statusBadge.className = 'db-badge db-badge-success';
+            }
+            
+            // Рендерим график Chart.js
+            const chartCanvas = document.getElementById('dbTelemetryChart');
+            if (!chartCanvas) return;
+            const ctx = chartCanvas.getContext('2d');
+            if (telemetryChartInstance) telemetryChartInstance.destroy();
+            
+            telemetryChartInstance = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: data.chart.labels,
+                    datasets: [
+                        {
+                            label: 'Чтения (Reads)',
+                            data: data.chart.reads,
+                            borderColor: '#2563eb',
+                            backgroundColor: 'rgba(37, 99, 235, 0.05)',
+                            borderWidth: 2.5,
+                            tension: 0.35,
+                            fill: true,
+                            pointRadius: 3,
+                            pointBackgroundColor: '#2563eb'
+                        },
+                        {
+                            label: 'Записи (Writes)',
+                            data: data.chart.writes,
+                            borderColor: '#16a34a',
+                            backgroundColor: 'rgba(22, 163, 74, 0.05)',
+                            borderWidth: 2.5,
+                            tension: 0.35,
+                            fill: true,
+                            pointRadius: 3,
+                            pointBackgroundColor: '#16a34a'
+                        },
+                        {
+                            label: 'Удаления (Deletes)',
+                            data: data.chart.deletes,
+                            borderColor: '#dc2626',
+                            backgroundColor: 'rgba(220, 38, 38, 0.05)',
+                            borderWidth: 2.5,
+                            tension: 0.35,
+                            fill: true,
+                            pointRadius: 3,
+                            pointBackgroundColor: '#dc2626'
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            grid: { color: '#f3f4f6' },
+                            ticks: {
+                                color: '#6b7280',
+                                font: { size: 11, family: 'system-ui' }
+                            }
+                        },
+                        x: {
+                            grid: { display: false },
+                            ticks: {
+                                color: '#6b7280',
+                                font: { size: 10, family: 'system-ui' }
+                            }
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            position: 'top',
+                            labels: {
+                                boxWidth: 12,
+                                font: { size: 12, weight: '600', family: 'system-ui' }
+                            }
+                        }
+                    }
+                }
+            });
+            
+        } catch(e) {
+            console.error("Error loading db telemetry:", e);
+            const statusBadge = document.getElementById('telemetryStatus');
+            if (statusBadge) {
+                statusBadge.textContent = 'Ошибка';
+                statusBadge.className = 'db-badge db-badge-danger';
+            }
+        }
+    }
+</script>
+{% endblock %}

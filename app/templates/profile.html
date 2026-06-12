@@ -1,0 +1,335 @@
+{% extends "base/desktop_base.html" %}
+
+{% block title %}Профиль пользователя — {{ user_name }}{% endblock %}
+
+{% block content %}
+<style>
+    .profile-container {
+        display: grid;
+        grid-template-columns: 320px 1fr;
+        gap: 30px;
+        align-items: start;
+        margin-top: 10px;
+    }
+
+    /* Левая колонка: Карта аватара */
+    .avatar-card {
+        background: #ffffff;
+        border: 1px solid var(--border);
+        border-radius: 16px;
+        padding: 30px 24px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        text-align: center;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.02), 0 2px 4px -1px rgba(0, 0, 0, 0.02);
+    }
+
+    .profile-image-container {
+        position: relative;
+        margin-bottom: 20px;
+    }
+
+    .profile-img {
+        width: 120px;
+        height: 120px;
+        border-radius: 24px;
+        object-fit: cover;
+        border: 4px solid #ffffff;
+        box-shadow: 0 8px 16px rgba(0, 0, 0, 0.08);
+        background: var(--primary-bg);
+    }
+
+    .profile-initials {
+        width: 120px;
+        height: 120px;
+        border-radius: 24px;
+        border: 4px solid #ffffff;
+        box-shadow: 0 8px 16px rgba(0, 0, 0, 0.08);
+        background: linear-gradient(135deg, var(--primary), #1d4ed8);
+        color: white;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 48px;
+        font-weight: 700;
+    }
+
+    .profile-status-badge {
+        position: absolute;
+        bottom: 4px;
+        right: 4px;
+        background: #10b981;
+        border: 3px solid #ffffff;
+        width: 18px;
+        height: 18px;
+        border-radius: 50%;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+
+    .profile-status-badge.offline {
+        background: #9ca3af;
+    }
+
+    .profile-name {
+        font-size: 18px;
+        font-weight: 700;
+        color: var(--text-main);
+        margin-bottom: 4px;
+    }
+
+    .profile-role-badge {
+        display: inline-block;
+        padding: 4px 12px;
+        border-radius: 50px;
+        font-size: 11px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        background: var(--primary-bg);
+        color: var(--primary);
+        margin-bottom: 24px;
+    }
+
+    .profile-actions {
+        width: 100%;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+    }
+
+    .profile-actions .btn {
+        width: 100%;
+        justify-content: center;
+        height: 42px;
+    }
+
+    /* Правая колонка: Информация */
+    .info-card {
+        background: #ffffff;
+        border: 1px solid var(--border);
+        border-radius: 16px;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.02), 0 2px 4px -1px rgba(0, 0, 0, 0.02);
+        overflow: hidden;
+    }
+
+    .info-header {
+        padding: 20px 24px;
+        border-bottom: 1px solid var(--border);
+        background: #fafafa;
+    }
+
+    .info-title {
+        font-size: 16px;
+        font-weight: 600;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        color: var(--text-main);
+    }
+
+    .info-body {
+        padding: 24px;
+    }
+
+    .info-section {
+        margin-bottom: 28px;
+    }
+
+    .info-section:last-child {
+        margin-bottom: 0;
+    }
+
+    .section-title {
+        font-size: 12px;
+        font-weight: 700;
+        color: var(--text-muted);
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        margin-bottom: 16px;
+        border-left: 3px solid var(--primary);
+        padding-left: 8px;
+    }
+
+    .info-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 20px;
+    }
+
+    .info-item {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+    }
+
+    .info-label {
+        font-size: 12px;
+        color: var(--text-muted);
+        font-weight: 500;
+    }
+
+    .info-value {
+        font-size: 14.5px;
+        color: var(--text-main);
+        font-weight: 600;
+    }
+
+    .info-value.mono {
+        font-family: monospace;
+        font-size: 13.5px;
+        background: #f3f4f6;
+        padding: 4px 8px;
+        border-radius: 6px;
+        width: fit-content;
+    }
+
+    @media (max-width: 768px) {
+        .profile-container {
+            grid-template-columns: 1fr;
+        }
+    }
+</style>
+
+<div class="profile-container">
+    <!-- Левая колонка -->
+    <div class="avatar-card">
+        <div class="profile-image-container">
+            {% if user_data.imageUrl and 'placeholder' not in user_data.imageUrl %}
+                <img src="{{ user_data.imageUrl }}" alt="{{ user_name }}" class="profile-img">
+            {% else %}
+                <div class="profile-initials">
+                    {{ user_name[:1]|upper if user_name else 'U' }}
+                </div>
+            {% endif %}
+            <span class="profile-status-badge {% if user_data.status != 'online' %}offline{% endif %}"></span>
+        </div>
+        
+        <h2 class="profile-name">{{ user_name }}</h2>
+        
+        {% set role_str = role.value if role.value is defined else role %}
+        <span class="profile-role-badge">
+            {% if role_str == 'admin' %}Администратор
+            {% elif role_str == 'inventory_manager' %}Менеджер склада
+            {% elif role_str == 'muver' %}Мувер
+            {% elif role_str == 'electrician' %}Электрик
+            {% elif role_str == 'technic' %}Техник
+            {% elif role_str == 'supervisor' %}Супервайзер
+            {% elif role_str == 'security' %}Охранник
+            {% else %}{{ role_str }}{% endif %}
+        </span>
+        
+        <div class="profile-actions">
+            <a href="/logout" class="btn btn-outline">
+                <i class="ph ph-user-switch"></i> Сменить аккаунт
+            </a>
+            <a href="/logout" class="btn btn-primary" style="background: var(--danger); box-shadow: 0 2px 4px rgba(220, 38, 38, 0.2);">
+                <i class="ph ph-sign-out"></i> Выйти из системы
+            </a>
+        </div>
+    </div>
+
+    <!-- Правая колонка -->
+    <div class="info-card">
+        <div class="info-header">
+            <h3 class="info-title"><i class="ph ph-user-circle" style="font-size:20px;"></i> Данные учётной записи</h3>
+        </div>
+        <div class="info-body">
+            <!-- Раздел: Личные данные -->
+            <div class="info-section">
+                <h4 class="section-title">Личные данные</h4>
+                <div class="info-grid">
+                    <div class="info-item">
+                        <span class="info-label">Имя пользователя (Логин)</span>
+                        <span class="info-value">@{{ user_data.username if user_data.username else 'N/A' }}</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">Адрес электронной почты (Email)</span>
+                        <span class="info-value">{{ user_data.email if user_data.email else 'N/A' }}</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Раздел: Системная информация -->
+            <div class="info-section">
+                <h4 class="section-title">Системные права и доступ</h4>
+                <div class="info-grid">
+                    <div class="info-item">
+                        <span class="info-label">Идентификатор пользователя (UID)</span>
+                        <span class="info-value mono">{{ user_id }}</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">Роль в системе</span>
+                        <span class="info-value">
+                            {% if role_str == 'admin' %}Администратор склада Bestuzhevskaya 10
+                            {% elif role_str == 'inventory_manager' %}Менеджер склада (Управление товарами)
+                            {% elif role_str == 'muver' %}Мувер (Сотрудник перемещений)
+                            {% elif role_str == 'electrician' %}Электрик склада
+                            {% elif role_str == 'technic' %}Техник склада
+                            {% elif role_str == 'supervisor' %}Супервайзер смены
+                            {% elif role_str == 'security' %}Охранник
+                            {% else %}{{ role_str }}{% endif %}
+                        </span>
+                    </div>
+                    <div class="info-item" style="grid-column: span 2;">
+                        <span class="info-label">Право на работу (Допуск к сменам)</span>
+                        <span class="info-value" style="display: flex; align-items: center; gap: 6px;">
+                            {% if user_data.isAllowedToWork == True or user_data.isAllowedToWork == 'True' %}
+                                <i class="ph ph-check-circle" style="color:var(--success); font-size:18px;"></i> Разрешено
+                            {% else %}
+                                <i class="ph ph-x-circle" style="color:var(--danger); font-size:18px;"></i> Заблокировано
+                            {% endif %}
+                        </span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Раздел: Телеметрия устройства -->
+            <div class="info-section">
+                <h4 class="section-title">Информация об устройстве и сессии</h4>
+                <div class="info-grid">
+                    <div class="info-item">
+                        <span class="info-label">Версия приложения</span>
+                        <span class="info-value">v{{ user_data.appVersion if user_data.appVersion else '1.0.0' }}</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">Информация об устройстве</span>
+                        <span class="info-value">{{ user_data.deviceInfo if user_data.deviceInfo else 'Неизвестно' }}</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">Дата регистрации</span>
+                        <span class="info-value" id="regDate">Загрузка...</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">Последняя активность (lastSeen)</span>
+                        <span class="info-value" id="lastSeenDate">Загрузка...</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        // Форматирование дат на стороне клиента
+        const formatEpoch = (epoch) => {
+            if (!epoch || epoch <= 0) return 'Никогда';
+            const date = new Date(epoch);
+            return date.toLocaleString('ru-RU', {
+                day: '2-digit',
+                month: '2-digit',
+                year: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+        };
+
+        const regTimestamp = {{ user_data.registrationTimestamp if user_data.registrationTimestamp else 0 }};
+        const lastSeenTimestamp = {{ user_data.lastSeen if user_data.lastSeen else 0 }};
+
+        document.getElementById('regDate').textContent = formatEpoch(regTimestamp);
+        document.getElementById('lastSeenDate').textContent = formatEpoch(lastSeenTimestamp);
+    });
+</script>
+{% endblock %}

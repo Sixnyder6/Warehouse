@@ -1,0 +1,127 @@
+{% extends "mobile/base.html" %}
+
+{% block title %}Взять / Добавить{% endblock %}
+
+{% block content %}
+
+<header class="ios-header">
+    <button onclick="history.back()" style="background:none;border:none;cursor:pointer;padding:4px;display:flex;align-items:center;justify-content:center;">
+        <i class="ph ph-arrow-left" style="font-size: 24px; color: #1a1a1a;"></i>
+    </button>
+    <h1 style="font-size: 20px; display: flex; align-items: center; gap: 6px;">
+        <i class="ph ph-package" style="color: #007aff; font-size: 24px;"></i>
+        <span>Запчасть</span>
+    </h1>
+    <div></div>
+</header>
+
+<div class="scroll-content">
+
+    <!-- Карточка товара -->
+    <div style="background: white; border-radius: 14px; overflow: hidden; margin-bottom: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.04);">
+        <div style="height: 220px; background: #f5f5f5; display: flex; align-items: center; justify-content: center;">
+            {% if item.imageUrl %}
+            <img src="{{ item.imageUrl }}" style="width: 100%; height: 100%; object-fit: contain; padding: 16px;" onerror="this.style.display='none';this.parentElement.innerHTML='<i class=\'ph ph-package\' style=\'font-size: 64px; color: #ccc;\'></i>'">
+            {% else %}
+            <i class="ph ph-package" style="font-size: 64px; color: #ccc;"></i>
+            {% endif %}
+        </div>
+        <div style="padding: 16px;">
+            <div style="font-size: 20px; font-weight: 700;">{{ item.shortName or 'Неизвестно' }}</div>
+            <div style="font-size: 14px; color: #888; margin-top: 4px;">{{ item.fullName or '' }}</div>
+            <div style="font-size: 13px; color: #aaa; margin-top: 2px;">SKU: {{ item.sku or '—' }}</div>
+            <div style="display: flex; gap: 8px; margin-top: 12px;">
+                <span class="stock-badge-lg normal" style="display: inline-flex; align-items: center; gap: 6px; border-radius: 20px;">
+                    <i class="ph ph-boxes" style="font-size: 16px;"></i>
+                    <span>В наличии: {{ item.stockCount or 0 }} {{ item.unit or 'шт' }}</span>
+                </span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Действия: Взять / Добавить -->
+    <div style="background: white; border-radius: 14px; padding: 16px; margin-bottom: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.04);">
+        <div style="margin-bottom: 16px;">
+            <label style="font-size: 13px; color: #888; font-weight: 500;">Количество</label>
+            <div style="display: flex; align-items: center; gap: 12px; margin-top: 8px;">
+                <button class="ios-btn outline" style="width: 44px; height: 44px; padding: 0; display: flex; align-items: center; justify-content: center;" onclick="changeQty(-1)"><i class="ph ph-minus" style="font-size: 18px;"></i></button>
+                <input type="number" id="qtyInput" value="1" min="1" style="flex:1;text-align:center;font-size:24px;font-weight:700;border:1.5px solid #e5e5e5;border-radius:12px;padding:10px;outline:none;">
+                <button class="ios-btn outline" style="width: 44px; height: 44px; padding: 0; display: flex; align-items: center; justify-content: center;" onclick="changeQty(1)"><i class="ph ph-plus" style="font-size: 18px;"></i></button>
+            </div>
+        </div>
+
+        <button class="ios-btn danger" style="width: 100%; height: 52px; font-size: 16px; margin-bottom: 10px; display: flex; align-items: center; justify-content: center; gap: 8px;" onclick="doTake()">
+            <i class="ph ph-minus-circle" style="font-size: 20px;"></i>
+            <span>Взять со склада</span>
+        </button>
+        <button class="ios-btn success" style="width: 100%; height: 52px; font-size: 16px; display: flex; align-items: center; justify-content: center; gap: 8px;" onclick="doAdd()">
+            <i class="ph ph-plus-circle" style="font-size: 20px;"></i>
+            <span>Добавить на склад</span>
+        </button>
+    </div>
+
+    <div id="actionLoading" style="display: none; text-align: center; padding: 20px;">
+        <i class="ph ph-spinner" style="font-size: 32px; animation: spin 1s linear infinite; display: inline-block;"></i>
+        <p style="margin-top: 8px; color: #888;">Выполняется...</p>
+    </div>
+
+</div>
+
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+    const itemId = '{{ item.id }}';
+
+    function changeQty(delta) {
+        const input = document.getElementById('qtyInput');
+        let val = parseInt(input.value) || 1;
+        val = Math.max(1, val + delta);
+        input.value = val;
+    }
+
+    async function doTake() {
+        const qty = parseInt(document.getElementById('qtyInput').value) || 1;
+        await doAction('take', qty);
+    }
+
+    async function doAdd() {
+        const qty = parseInt(document.getElementById('qtyInput').value) || 1;
+        await doAction('add', qty);
+    }
+
+    async function doAction(action, qty) {
+        document.getElementById('actionLoading').style.display = 'block';
+        try {
+            const url = action === 'take' ? '/api/warehouse/take' : '/api/warehouse/add';
+
+            // Берём данные пользователя из URL или sessionStorage
+            const params = new URLSearchParams(window.location.search);
+            const realUserId  = params.get('user_id')  || sessionStorage.getItem('user_id')  || 'mobile-user';
+            const realUserName = params.get('user_name') || sessionStorage.getItem('user_name') || 'Сотрудник';
+
+            const res = await fetch(url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    itemId: itemId,
+                    quantity: qty,
+                    userName: realUserName,
+                    userId: realUserId
+                })
+            });
+            const data = await res.json();
+            if (data.success) {
+                showToast('✅ ' + data.message);
+                setTimeout(() => location.reload(), 1500);
+            } else {
+                showToast('❌ ' + (data.detail || 'Ошибка'));
+            }
+        } catch (e) {
+            showToast('❌ Ошибка: ' + e.message);
+        } finally {
+            document.getElementById('actionLoading').style.display = 'none';
+        }
+    }
+</script>
+{% endblock %}

@@ -1,0 +1,270 @@
+{% extends "mobile/base.html" %}
+
+{% block title %}Вход{% endblock %}
+
+{% block extra_styles %}
+<style>
+    /* Скрываем таб-бар на странице логина */
+    .tab-bar { display: none !important; }
+    body { padding-bottom: 0 !important; }
+    .login-error { color: #ef4444; }
+</style>
+{% endblock %}
+
+{% block content %}
+<style>
+    /* iOS-style login screen — Stardust темная тема как в Android */
+    .login-wrap {
+        min-height: 100vh;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        padding: 24px;
+        background: #0d0d1a;
+        position: relative;
+        overflow: hidden;
+    }
+    .login-glow {
+        position: absolute;
+        width: 300px;
+        height: 300px;
+        top: 10%;
+        background: radial-gradient(circle, rgba(124,58,237,0.15) 0%, transparent 70%);
+        border-radius: 50%;
+        pointer-events: none;
+    }
+    .login-icon-box {
+        width: 72px;
+        height: 72px;
+        border-radius: 20px;
+        background: linear-gradient(135deg, rgba(124,58,237,0.3), rgba(124,58,237,0.1));
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 32px;
+        margin-bottom: 20px;
+    }
+    .login-title {
+        font-size: 24px;
+        font-weight: 700;
+        color: #f3f4f6;
+        margin-bottom: 6px;
+    }
+    .login-sub {
+        font-size: 13px;
+        color: #6b6b80;
+        margin-bottom: 32px;
+    }
+    .login-input-group {
+        width: 100%;
+        max-width: 340px;
+        margin-bottom: 10px;
+    }
+    .login-input-group label {
+        font-size: 12px;
+        color: #6b6b80;
+        font-weight: 600;
+        margin-bottom: 6px;
+        display: block;
+        letter-spacing: 0.5px;
+    }
+    .login-input-wrap {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        width: 100%;
+        height: 52px;
+        border-radius: 14px;
+        background: rgba(255,255,255,0.06);
+        border: 1px solid rgba(255,255,255,0.04);
+        padding: 0 14px;
+        transition: all 0.2s;
+    }
+    .login-input-wrap:focus-within {
+        border-color: rgba(124,58,237,0.5);
+        background: rgba(124,58,237,0.05);
+    }
+    .login-input-wrap .icon {
+        font-size: 17px;
+        opacity: 0.4;
+        flex-shrink: 0;
+    }
+    .login-input-wrap input {
+        flex: 1;
+        background: transparent;
+        border: none;
+        outline: none;
+        font-size: 15px;
+        color: #f3f4f6;
+        font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', sans-serif;
+    }
+    .login-input-wrap input::placeholder {
+        color: rgba(107,107,128,0.5);
+    }
+    .login-input-wrap .toggle-pass {
+        font-size: 17px;
+        opacity: 0.4;
+        cursor: pointer;
+        padding: 4px;
+        -webkit-tap-highlight-color: transparent;
+    }
+    .login-btn {
+        width: 100%;
+        max-width: 340px;
+        height: 54px;
+        border-radius: 16px;
+        background: linear-gradient(135deg, #7c3aed, #6d28d9);
+        border: none;
+        color: white;
+        font-size: 16px;
+        font-weight: 700;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        margin-top: 16px;
+        transition: opacity 0.2s;
+        -webkit-tap-highlight-color: transparent;
+    }
+    .login-btn:active { opacity: 0.8; transform: scale(0.98); }
+    .login-btn:disabled { opacity: 0.45; }
+    .login-error {
+        background: rgba(239,68,68,0.12);
+        border: 1px solid rgba(239,68,68,0.25);
+        border-radius: 12px;
+        padding: 12px 16px;
+        margin-bottom: 16px;
+        color: #ef4444;
+        font-size: 13px;
+        text-align: center;
+        max-width: 340px;
+        width: 100%;
+        display: none;
+    }
+    .login-error.show { display: block; }
+    .login-loader {
+        width: 20px;
+        height: 20px;
+        border: 2.5px solid rgba(255,255,255,0.3);
+        border-top-color: white;
+        border-radius: 50%;
+        animation: spin 0.6s linear infinite;
+        display: none;
+    }
+    .login-btn.loading .login-loader { display: block; }
+    .login-btn.loading .btn-text { display: none; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+</style>
+
+<div class="login-wrap">
+    <div class="login-glow"></div>
+
+    <div class="login-icon-box" style="display:flex;align-items:center;justify-content:center;">
+        <i class="ph ph-lock-key" style="color: #7c3aed; font-size: 36px;"></i>
+    </div>
+    <div class="login-title">Вход в систему</div>
+    <div class="login-sub">Stardust · Бестужевская 10</div>
+
+    <div id="loginError" class="login-error"></div>
+
+    <div class="login-input-group">
+        <label>EMAIL</label>
+        <div class="login-input-wrap">
+            <span class="icon"><i class="ph ph-envelope" style="font-size: 18px; color: #6b6b80;"></i></span>
+            <input type="email" id="loginUsername" placeholder="example@mail.com" autocomplete="username" />
+        </div>
+    </div>
+
+    <div class="login-input-group">
+        <label>ПАРОЛЬ</label>
+        <div class="login-input-wrap">
+            <span class="icon"><i class="ph ph-lock" style="font-size: 18px; color: #6b6b80;"></i></span>
+            <input type="password" id="loginPassword" placeholder="Пароль" autocomplete="current-password" />
+            <span class="toggle-pass" id="togglePass" onclick="togglePassword()" style="display:flex;align-items:center;opacity:0.6;"><i class="ph ph-eye" style="font-size: 18px; color: #6b6b80;"></i></span>
+        </div>
+    </div>
+
+    <button class="login-btn" id="loginBtn" onclick="doLogin()">
+        <span class="btn-text" style="display:flex;align-items:center;gap:6px;">
+            <span>Войти</span>
+            <i class="ph ph-arrow-right" style="font-size: 16px;"></i>
+        </span>
+        <div class="login-loader"></div>
+    </button>
+</div>
+
+<script>
+let isLoggingIn = false;
+
+function togglePassword() {
+    const pwd = document.getElementById('loginPassword');
+    pwd.type = pwd.type === 'password' ? 'text' : 'password';
+    document.getElementById('togglePass').innerHTML = pwd.type === 'password' ? '<i class="ph ph-eye" style="font-size: 18px; color: #6b6b80;"></i>' : '<i class="ph ph-eye-slash" style="font-size: 18px; color: #6b6b80;"></i>';
+}
+
+// Enter key on password field
+document.getElementById('loginPassword').addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') doLogin();
+});
+document.getElementById('loginUsername').addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') document.getElementById('loginPassword').focus();
+});
+
+async function doLogin() {
+    if (isLoggingIn) return;
+    const email = document.getElementById('loginUsername').value.trim();
+    const password = document.getElementById('loginPassword').value;
+    const errorEl = document.getElementById('loginError');
+    const btn = document.getElementById('loginBtn');
+
+    if (!email || !password) {
+        errorEl.textContent = 'Заполните email и пароль';
+        errorEl.classList.add('show');
+        return;
+    }
+
+    isLoggingIn = true;
+    btn.classList.add('loading');
+    errorEl.classList.remove('show');
+
+    try {
+        const resp = await fetch('/api/mobile/login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email, password })
+        });
+        const data = await resp.json();
+
+        if (data.success) {
+            // Сохраняем в sessionStorage
+            sessionStorage.setItem('user_id', data.user_id);
+            sessionStorage.setItem('user_name', data.user_name);
+            sessionStorage.setItem('user_role', data.user_role);
+            sessionStorage.setItem('user_display', data.user_display);
+            sessionStorage.setItem('is_logged_in', 'true');
+            // Переход на экран начала смены
+            window.location.href = '/mobile/shift_lock?user_id=' + encodeURIComponent(data.user_id) + '&user_role=' + encodeURIComponent(data.user_role) + '&user_name=' + encodeURIComponent(data.user_name);
+        } else {
+            errorEl.textContent = data.error || 'Ошибка входа';
+            errorEl.classList.add('show');
+        }
+    } catch (e) {
+        errorEl.textContent = 'Ошибка соединения с сервером';
+        errorEl.classList.add('show');
+    } finally {
+        isLoggingIn = false;
+        btn.classList.remove('loading');
+    }
+}
+
+// Если уже залогинен — сразу на дашборд
+if (sessionStorage.getItem('is_logged_in') === 'true') {
+    const uid = sessionStorage.getItem('user_id') || '';
+    const role = sessionStorage.getItem('user_role') || '';
+    const name = sessionStorage.getItem('user_name') || '';
+    window.location.href = '/mobile/shift_lock?user_id=' + encodeURIComponent(uid) + '&user_role=' + encodeURIComponent(role) + '&user_name=' + encodeURIComponent(name);
+}
+</script>
+{% endblock %}

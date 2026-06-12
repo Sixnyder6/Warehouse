@@ -1,0 +1,511 @@
+{% extends "mobile/base.html" %}
+
+{% block title %}История склада{% endblock %}
+
+{% block content %}
+<style>
+    /* iOS Segmented Control */
+    .segmented-control {
+        display: flex;
+        background: rgba(118,118,128,0.12);
+        border-radius: 9px;
+        padding: 2px;
+        margin: 12px 16px 8px;
+    }
+    .segment-btn {
+        flex: 1;
+        border: none;
+        background: transparent;
+        padding: 8px 0;
+        font-size: 13px;
+        font-weight: 600;
+        border-radius: 7px;
+        color: #1c1c1e;
+        cursor: pointer;
+        transition: all 0.12s ease;
+        outline: none;
+        -webkit-tap-highlight-color: transparent;
+    }
+    .segment-btn.active {
+        background: white;
+        color: #007aff;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.04);
+    }
+
+    /* Фильтры периодов */
+    .period-bar {
+        display: flex;
+        gap: 6px;
+        padding: 4px 16px 10px;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: none;
+    }
+    .period-bar::-webkit-scrollbar { display: none; }
+    .period-chip {
+        flex-shrink: 0;
+        padding: 6px 14px;
+        border-radius: 16px;
+        background: rgba(118,118,128,0.08);
+        font-size: 13px;
+        font-weight: 500;
+        color: #48484a;
+        cursor: pointer;
+        -webkit-tap-highlight-color: transparent;
+        transition: all 0.15s;
+        border: 1px solid transparent;
+    }
+    .period-chip.active {
+        background: rgba(0,122,255,0.12);
+        color: #007aff;
+        font-weight: 600;
+    }
+
+    /* Date Range Select */
+    .date-range-panel {
+        display: flex;
+        gap: 10px;
+        padding: 0 16px 12px;
+        align-items: center;
+    }
+    .date-input-box {
+        flex: 1;
+    }
+    .date-input-box label {
+        font-size: 10px;
+        font-weight: 700;
+        color: #8e8e93;
+        display: block;
+        margin-bottom: 4px;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    .date-field {
+        width: 100%;
+        height: 38px;
+        border-radius: 10px;
+        background: white;
+        border: 1px solid rgba(0,0,0,0.12);
+        padding: 0 10px;
+        font-family: inherit;
+        font-size: 14px;
+        font-weight: 500;
+        color: #1c1c1e;
+        outline: none;
+        box-shadow: 0 1px 2px rgba(0,0,0,0.02);
+    }
+
+    /* Stats Panel Card */
+    .stats-card-inner {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 0;
+    }
+    .stats-col {
+        flex: 1;
+        text-align: center;
+    }
+    .stats-col:not(:last-child) {
+        border-right: 1px solid #f2f2f7;
+    }
+    .stats-val {
+        font-size: 18px;
+        font-weight: 700;
+        margin-top: 4px;
+    }
+    .stats-val.blue { color: #007aff; }
+    .stats-val.red { color: #ff3b30; }
+    .stats-val.green { color: #34c759; }
+
+    /* List styling */
+    .tx-item {
+        display: flex;
+        align-items: center;
+        background: white;
+        border-bottom: 1px solid #f2f2f7;
+    }
+    .tx-item:last-child {
+        border-bottom: none;
+    }
+    .tx-icon-wrap {
+        width: 36px;
+        height: 36px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+    }
+    .tx-icon-wrap.taken { background: #fef2f2; }
+    .tx-icon-wrap.added { background: #f0fdf4; }
+    .tx-info {
+        flex: 1;
+        min-width: 0;
+    }
+    .tx-item-name {
+        color: #1c1c1e;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    .tx-quantity.taken { color: #ff3b30; }
+    .tx-quantity.added { color: #34c759; }
+
+    .empty-state {
+        text-align: center;
+        padding: 40px 20px;
+        color: #8e8e93;
+    }
+</style>
+
+<header class="ios-header">
+    <div style="display: flex; align-items: center; gap: 8px;">
+        <i class="ph ph-clock-counter-clockwise" style="color: #007aff; font-size: 28px;"></i>
+        <div>
+            <h1 style="font-size: 22px; line-height: 1.2;">История склада</h1>
+            <div class="header-sub" style="margin-top: 0;">{{ user_name }} · {{ user_display_role or user_role_display }}</div>
+        </div>
+    </div>
+</header>
+
+<div class="scroll-content" style="padding: 0 0 80px; background: #f2f2f7;">
+    <!-- Вкладки Все / Мои -->
+    <div class="segmented-control">
+        <button class="segment-btn active" id="btnViewAll" onclick="setViewType('all')">Все списания</button>
+        <button class="segment-btn" id="btnViewMy" onclick="setViewType('my')">Мои списания</button>
+    </div>
+
+    <!-- Строка поиска -->
+    <div style="padding: 0 16px 8px;">
+        <div class="search-bar" style="margin-bottom: 0; background: rgba(118,118,128,0.12);">
+            <i class="ph ph-magnifying-glass search-icon" style="color: #8e8e93;"></i>
+            <input type="text" id="historySearch" placeholder="Поиск запчасти или сотрудника..." oninput="onSearchChange()" style="font-size: 15px;">
+        </div>
+    </div>
+
+    <!-- Периоды -->
+    <div class="period-bar">
+        <span class="period-chip active" id="chipAll" onclick="setPeriod('all_time')">Все время</span>
+        <span class="period-chip" id="chipToday" onclick="setPeriod('today')">Сегодня</span>
+        <span class="period-chip" id="chipPeriod" onclick="setPeriod('period')">За период</span>
+    </div>
+
+    <!-- Календарь для выбора периода -->
+    <div class="date-range-panel" id="dateRangePanel" style="display: none;">
+        <div class="date-input-box">
+            <label>От</label>
+            <input type="date" id="startDateInput" class="date-field" onchange="onDateRangeChange()">
+        </div>
+        <div class="date-input-box">
+            <label>До</label>
+            <input type="date" id="endDateInput" class="date-field" onchange="onDateRangeChange()">
+        </div>
+    </div>
+
+    <!-- Сводная панель статистики -->
+    <div style="padding: 0 16px 12px;">
+        <div class="ios-card" style="padding: 14px 16px; margin-bottom: 0;">
+            <div class="stats-card-inner">
+                <div class="stats-col">
+                    <div style="font-size: 10px; color: #8e8e93; font-weight: 600; text-transform: uppercase;">Транзакции</div>
+                    <div class="stats-val blue" id="statsOperations">0</div>
+                </div>
+                <div class="stats-col">
+                    <div style="font-size: 10px; color: #8e8e93; font-weight: 600; text-transform: uppercase;">Списано</div>
+                    <div class="stats-val red" id="statsTaken">0 шт</div>
+                </div>
+                <div class="stats-col">
+                    <div style="font-size: 10px; color: #8e8e93; font-weight: 600; text-transform: uppercase;">Поступления</div>
+                    <div class="stats-val green" id="statsAdded">0 шт</div>
+                </div>
+            </div>
+
+            <!-- Топ списываемых деталей -->
+            <div id="topPartsSection" style="border-top: 1px solid #f2f2f7; margin-top: 12px; padding-top: 10px; display: none;">
+                <div style="font-size: 11px; font-weight: 700; color: #1c1c1e; margin-bottom: 6px; letter-spacing: 0.3px;">ТОП СПИСЫВАЕМЫХ ДЕТАЛЕЙ:</div>
+                <div id="topPartsList" style="display: flex; flex-direction: column; gap: 4px;">
+                    <!-- Отрендерится динамически -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Загрузка -->
+    <div id="transactionsLoading" style="text-align: center; padding: 40px 20px; color: #888;">
+        <i class="ph ph-spinner" style="font-size: 32px; color: #007aff;"></i>
+        <p style="margin-top: 8px; font-size: 14px; font-weight: 500;">Загрузка истории...</p>
+    </div>
+
+    <!-- Пусто -->
+    <div id="transactionsEmpty" class="empty-state" style="display: none;">
+        <i class="ph ph-history" style="font-size: 48px; opacity: 0.3; margin-bottom: 12px; display: block; margin-left: auto; margin-right: auto;"></i>
+        <div style="font-size: 16px; font-weight: 600; color: #1c1c1e; margin-bottom: 4px;">Нет операций</div>
+        <div style="font-size: 13px; color: #8e8e93;">По вашему запросу ничего не найдено</div>
+    </div>
+
+    <!-- Ошибка -->
+    <div id="transactionsError" class="empty-state" style="display: none;">
+        <i class="ph ph-warning-circle" style="font-size: 48px; color: #ff3b30; opacity: 0.5; margin-bottom: 12px; display: block; margin-left: auto; margin-right: auto;"></i>
+        <div style="font-size: 16px; font-weight: 600; color: #1c1c1e; margin-bottom: 4px;">Ошибка загрузки</div>
+        <div id="transactionsErrorText" style="font-size: 13px; color: #ff3b30;">Не удалось связаться с сервером</div>
+    </div>
+
+    <!-- Список групп по дням -->
+    <div id="transactionsContent" style="display: none;">
+        <div id="dayGroups"></div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+    let allLogs = [];
+    let currentPeriod = 'all_time'; // today, all_time, period
+    let currentViewType = 'all'; // all, my
+    let searchQuery = '';
+    let startDate = new Date();
+    let endDate = new Date();
+
+    // По умолчанию ставим диапазон за неделю
+    startDate.setDate(endDate.getDate() - 7);
+
+    document.addEventListener('DOMContentLoaded', () => {
+        // Устанавливаем значения в календарях по умолчанию
+        document.getElementById('startDateInput').value = startDate.toISOString().split('T')[0];
+        document.getElementById('endDateInput').value = endDate.toISOString().split('T')[0];
+
+        // Загрузка
+        loadTransactions();
+    });
+
+    async function loadTransactions() {
+        try {
+            document.getElementById('transactionsLoading').style.display = 'block';
+            document.getElementById('transactionsContent').style.display = 'none';
+            document.getElementById('transactionsEmpty').style.display = 'none';
+            document.getElementById('transactionsError').style.display = 'none';
+
+            const res = await fetch('/api/mobile/my-transactions?user_id=all&limit=500');
+            if (!res.ok) throw new Error('HTTP ' + res.status);
+            
+            const data = await res.json();
+            if (!data.success) {
+                throw new Error(data.error || 'Ошибка бэкенда');
+            }
+
+            allLogs = data.logs || [];
+            applyFiltersAndRender();
+        } catch (e) {
+            console.error('Failed to load logs:', e);
+            document.getElementById('transactionsLoading').style.display = 'none';
+            document.getElementById('transactionsError').style.display = 'block';
+            document.getElementById('transactionsErrorText').textContent = e.message || 'Не удалось загрузить операции';
+        }
+    }
+
+    function setViewType(type) {
+        currentViewType = type;
+        document.getElementById('btnViewAll').classList.toggle('active', type === 'all');
+        document.getElementById('btnViewMy').classList.toggle('active', type === 'my');
+        applyFiltersAndRender();
+    }
+
+    function setPeriod(period) {
+        currentPeriod = period;
+        document.getElementById('chipAll').classList.toggle('active', period === 'all_time');
+        document.getElementById('chipToday').classList.toggle('active', period === 'today');
+        document.getElementById('chipPeriod').classList.toggle('active', period === 'period');
+        
+        document.getElementById('dateRangePanel').style.display = (period === 'period') ? 'flex' : 'none';
+        applyFiltersAndRender();
+    }
+
+    function onSearchChange() {
+        searchQuery = document.getElementById('historySearch').value;
+        applyFiltersAndRender();
+    }
+
+    function onDateRangeChange() {
+        const startVal = document.getElementById('startDateInput').value;
+        const endVal = document.getElementById('endDateInput').value;
+        if (startVal) startDate = new Date(startVal);
+        if (endVal) endDate = new Date(endVal);
+        applyFiltersAndRender();
+    }
+
+    function applyFiltersAndRender() {
+        const currentUserId = sessionStorage.getItem('user_id') || '';
+
+        // 1. Фильтрация данных
+        const filtered = allLogs.filter(log => {
+            // Фильтр вкладки: Все / Мои
+            const matchesUser = (currentViewType === 'my') ? (log.userId === currentUserId) : true;
+
+            // Фильтр по Периоду
+            let matchesPeriod = true;
+            if (log.timestamp) {
+                const logTime = new Date(log.timestamp).getTime();
+                
+                if (currentPeriod === 'today') {
+                    const todayStart = new Date().setHours(0, 0, 0, 0);
+                    const todayEnd = new Date().setHours(23, 59, 59, 999);
+                    matchesPeriod = (logTime >= todayStart && logTime <= todayEnd);
+                } else if (currentPeriod === 'period') {
+                    const startMs = new Date(startDate).setHours(0, 0, 0, 0);
+                    const endMs = new Date(endDate).setHours(23, 59, 59, 999);
+                    matchesPeriod = (logTime >= startMs && logTime <= endMs);
+                }
+            } else {
+                matchesPeriod = (currentPeriod === 'all_time');
+            }
+
+            // Текстовый поиск по запчасти или сотруднику
+            let matchesSearch = true;
+            if (searchQuery.trim() !== '') {
+                const q = searchQuery.toLowerCase().trim();
+                const itemName = (log.itemName || '').toLowerCase();
+                const userName = (log.userName || '').toLowerCase();
+                matchesSearch = (itemName.includes(q) || userName.includes(q));
+            }
+
+            return matchesUser && matchesPeriod && matchesSearch;
+        });
+
+        // 2. Расчет статистики
+        const totalOps = filtered.length;
+        const totalTaken = filtered.filter(l => l.quantityChange < 0).reduce((sum, l) => sum + Math.abs(l.quantityChange), 0);
+        const totalAdded = filtered.filter(l => l.quantityChange > 0).reduce((sum, l) => sum + l.quantityChange, 0);
+
+        // Расчет ТОП-3 деталей
+        const topPartsMap = {};
+        filtered.filter(l => l.quantityChange < 0).forEach(l => {
+            topPartsMap[l.itemName] = (topPartsMap[l.itemName] || 0) + Math.abs(l.quantityChange);
+        });
+        const topParts = Object.entries(topPartsMap)
+            .sort((a, b) => b[1] - a[1])
+            .slice(0, 3);
+
+        // Отрисовка статистики
+        document.getElementById('statsOperations').textContent = totalOps;
+        document.getElementById('statsTaken').textContent = totalTaken + ' шт';
+        document.getElementById('statsAdded').textContent = totalAdded + ' шт';
+
+        const topPartsSection = document.getElementById('topPartsSection');
+        const topPartsList = document.getElementById('topPartsList');
+        if (topParts.length > 0) {
+            topPartsSection.style.display = 'block';
+            topPartsList.innerHTML = topParts.map(([name, qty]) => `
+                <div style="display: flex; justify-content: space-between; align-items: center; padding: 2px 0; font-size: 13px;">
+                    <span style="color: #48484a; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 75%;">${escapeHtml(name)}</span>
+                    <span style="font-weight: 700; color: #ff3b30;">${qty} шт</span>
+                </div>
+            `).join('');
+        } else {
+            topPartsSection.style.display = 'none';
+        }
+
+        // 3. Группировка по дням
+        const dayGroups = {};
+        filtered.forEach(log => {
+            if (!log.timestamp) return;
+            const logDate = new Date(log.timestamp);
+            
+            // Формат даты: "15 июня 2026"
+            const dayLabel = logDate.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' });
+            
+            if (!dayGroups[dayLabel]) {
+                dayGroups[dayLabel] = [];
+            }
+            dayGroups[dayLabel].push(log);
+        });
+
+        // 4. Отрисовка списка
+        const dayGroupsEl = document.getElementById('dayGroups');
+        document.getElementById('transactionsLoading').style.display = 'none';
+
+        if (totalOps === 0) {
+            document.getElementById('transactionsContent').style.display = 'none';
+            document.getElementById('transactionsEmpty').style.display = 'block';
+            return;
+        }
+
+        document.getElementById('transactionsEmpty').style.display = 'none';
+        document.getElementById('transactionsContent').style.display = 'block';
+
+        // Сортировка дней по убыванию
+        const sortedDays = Object.keys(dayGroups).sort((a, b) => {
+            const dateA = new Date(dayGroups[a][0].timestamp);
+            const dateB = new Date(dayGroups[b][0].timestamp);
+            return dateB - dateA;
+        });
+
+        let html = '';
+        for (const day of sortedDays) {
+            const dayLogs = dayGroups[day];
+            let itemsHtml = '';
+
+            for (const log of dayLogs) {
+                const isTaken = log.quantityChange < 0;
+                const iconClass = isTaken ? 'ph-arrow-up-right' : 'ph-arrow-down-left';
+                const logTime = log.timestamp ? new Date(log.timestamp).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }) : '';
+                const catColor = generateColorForCategory(log.category || 'Общее');
+
+                itemsHtml += `
+                <div class="tx-item" style="padding: 12px 16px;">
+                    <div class="tx-icon-wrap ${isTaken ? 'taken' : 'added'}" style="color: ${isTaken ? '#ff3b30' : '#34c759'}; font-size: 18px;">
+                        <i class="ph ${iconClass}"></i>
+                    </div>
+                    <div class="tx-info" style="margin-left: 12px;">
+                        <div class="tx-item-name" style="font-weight: 600; font-size: 14px;">${escapeHtml(log.itemName)}</div>
+                        <div style="display: flex; align-items: center; gap: 6px; margin-top: 4px;">
+                            <span style="background: ${catColor}1f; color: ${catColor}; font-size: 9px; font-weight: 700; padding: 2px 6px; border-radius: 4px; text-transform: uppercase;">
+                                ${escapeHtml(log.category || 'Общее')}
+                            </span>
+                            <span style="color: rgba(142,142,147,0.3); font-size: 10px;">•</span>
+                            <span style="font-size: 11px; color: #8e8e93;">${escapeHtml(log.userName)}</span>
+                        </div>
+                    </div>
+                    <div style="margin-left: auto; text-align: right;">
+                        <div class="tx-quantity ${isTaken ? 'taken' : 'added'}" style="font-weight: 700; font-size: 14px;">
+                            ${isTaken ? '−' : '+'}${Math.abs(log.quantityChange)} шт
+                        </div>
+                        <div style="font-size: 11px; color: #8e8e93; margin-top: 2px;">
+                            ${logTime}
+                        </div>
+                    </div>
+                </div>`;
+            }
+
+            html += `
+            <div class="day-section">
+                <div class="day-header">
+                    ${day}
+                </div>
+                <div class="ios-card" style="margin: 0 16px;">
+                    ${itemsHtml}
+                </div>
+            </div>`;
+        }
+
+        dayGroupsEl.innerHTML = html;
+    }
+
+    function generateColorForCategory(cat) {
+        if (!cat) return '#007aff';
+        let hash = 0;
+        for (let i = 0; i < cat.length; i++) {
+            hash = cat.charCodeAt(i) + ((hash << 5) - hash);
+        }
+        const h = Math.abs(hash % 360);
+        return `hsl(${h}, 70%, 45%)`;
+    }
+
+    function escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+</script>
+{% endblock %}

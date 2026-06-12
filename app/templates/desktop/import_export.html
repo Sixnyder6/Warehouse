@@ -1,0 +1,433 @@
+{% extends "base/desktop_base.html" %}
+
+{% block title %}Импорт/Экспорт товаров{% endblock %}
+
+{% block content %}
+
+<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px;">
+    
+    <!-- Левая колонка - Добавление товара -->
+    <div class="card">
+        <div class="card-header">
+            <div class="card-title">
+                <i class="ph ph-plus-circle"></i>
+                <span>Добавить новый товар</span>
+            </div>
+        </div>
+        <div class="card-body">
+            <form id="addItemForm">
+                <!-- Полное название -->
+                <div style="margin-bottom: 16px;">
+                    <label style="display: block; font-size: 13px; font-weight: 500; margin-bottom: 6px;">Полное название *</label>
+                    <input type="text" id="fullName" required class="form-input" style="width: 100%; padding: 10px; border: 1px solid #e5e5e5; border-radius: 8px;">
+                </div>
+                
+                <!-- Короткое название -->
+                <div style="margin-bottom: 16px;">
+                    <label style="display: block; font-size: 13px; font-weight: 500; margin-bottom: 6px;">Короткое название *</label>
+                    <input type="text" id="shortName" required class="form-input" style="width: 100%; padding: 10px; border: 1px solid #e5e5e5; border-radius: 8px;">
+                </div>
+                
+                <!-- Артикул -->
+                <div style="margin-bottom: 16px;">
+                    <label style="display: block; font-size: 13px; font-weight: 500; margin-bottom: 6px;">Артикул (SKU)</label>
+                    <input type="text" id="sku" placeholder="Например: BR-001" class="form-input" style="width: 100%; padding: 10px; border: 1px solid #e5e5e5; border-radius: 8px;">
+                </div>
+                
+                <!-- Категория -->
+                <div style="margin-bottom: 16px;">
+                    <label style="display: block; font-size: 13px; font-weight: 500; margin-bottom: 6px;">Категория *</label>
+                    <select id="category" class="form-input" style="width: 100%; padding: 10px; border: 1px solid #e5e5e5; border-radius: 8px;">
+                        <option value="">Выберите категорию</option>
+                    </select>
+                    <input type="text" id="newCategory" placeholder="Или создайте новую категорию" style="width: 100%; margin-top: 8px; padding: 10px; border: 1px solid #e5e5e5; border-radius: 8px;">
+                </div>
+                
+                <!-- Единица измерения -->
+                <div style="margin-bottom: 16px;">
+                    <label style="display: block; font-size: 13px; font-weight: 500; margin-bottom: 6px;">Единица измерения *</label>
+                    <div style="display: flex; gap: 12px; flex-wrap: wrap;">
+                        <label><input type="radio" name="unit" value="шт" checked> шт</label>
+                        <label><input type="radio" name="unit" value="грамм"> грамм</label>
+                        <label><input type="radio" name="unit" value="кг"> кг</label>
+                        <label><input type="radio" name="unit" value="л"> л</label>
+                        <label><input type="radio" name="unit" value="м"> м</label>
+                        <label><input type="radio" name="unit" value="пар"> пар</label>
+                        <input type="text" id="customUnit" placeholder="Своя" style="width: 80px; padding: 6px; border: 1px solid #e5e5e5; border-radius: 6px;">
+                    </div>
+                </div>
+                
+                <!-- Количество -->
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px;">
+                    <div>
+                        <label style="display: block; font-size: 13px; font-weight: 500; margin-bottom: 6px;">Общее количество *</label>
+                        <input type="number" id="totalStock" value="0" min="0" style="width: 100%; padding: 10px; border: 1px solid #e5e5e5; border-radius: 8px;">
+                    </div>
+                    <div>
+                        <label style="display: block; font-size: 13px; font-weight: 500; margin-bottom: 6px;">Порог "Мало"</label>
+                        <input type="number" id="lowStockThreshold" value="5" min="1" style="width: 100%; padding: 10px; border: 1px solid #e5e5e5; border-radius: 8px;">
+                    </div>
+                </div>
+                
+                <!-- URL картинки -->
+                <div style="margin-bottom: 20px;">
+                    <label style="display: block; font-size: 13px; font-weight: 500; margin-bottom: 6px;">Ссылка на изображение</label>
+                    <input type="url" id="imageUrl" placeholder="https://..." style="width: 100%; padding: 10px; border: 1px solid #e5e5e5; border-radius: 8px;">
+                </div>
+                
+                <button type="submit" class="btn btn-primary" style="width: 100%;">Добавить товар</button>
+            </form>
+        </div>
+    </div>
+    
+    <!-- Правая колонка - Импорт/Экспорт -->
+    <div>
+        <div class="card" style="margin-bottom: 24px;">
+            <div class="card-header">
+                <div class="card-title">
+                    <i class="ph ph-file-csv"></i>
+                    <span>Экспорт данных</span>
+                </div>
+            </div>
+            <div class="card-body">
+                <p style="color: #666; margin-bottom: 16px;">Выгрузить все товары в CSV файл</p>
+                <button onclick="exportToCSV()" class="btn btn-primary" style="width: 100%;">
+                    <i class="ph ph-download"></i> Экспортировать в CSV
+                </button>
+            </div>
+        </div>
+        
+        <!-- Импорт из Excel BOM -->
+        <div class="card" style="margin-bottom: 24px;">
+            <div class="card-header">
+                <div class="card-title">
+                    <i class="ph ph-file-xls" style="color: #2ecc71;"></i>
+                    <span>Импорт из Excel BOM (Спецификация)</span>
+                </div>
+            </div>
+            <div class="card-body">
+                <p style="color: #666; margin-bottom: 16px;">Загрузить Excel файл спецификации деталей для автоматического парсинга, перевода и загрузки картинок в Cloudinary.</p>
+                <input type="file" id="excelFile" accept=".xlsx" style="margin-bottom: 16px; width: 100%;">
+                <button id="excelImportBtn" onclick="importFromExcel()" class="btn btn-outline" style="width: 100%; border-color: #2ecc71; color: #2ecc71; font-weight: 500;">
+                    <i class="ph ph-file-xls"></i> Импортировать Excel BOM
+                </button>
+                
+                <div id="excelProgressSection" style="display: none; margin-top: 20px; border-top: 1px solid #eee; padding-top: 16px;">
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+                        <span id="excelProgressStatus" style="font-weight: 500; font-size: 13px; color: #333;">Подготовка...</span>
+                        <span id="excelProgressPercent" style="font-weight: 600; font-size: 13px; color: #2ecc71;">0%</span>
+                    </div>
+                    <!-- Прогресс-бар -->
+                    <div style="width: 100%; height: 8px; background-color: #f0f0f0; border-radius: 4px; overflow: hidden; margin-bottom: 12px;">
+                        <div id="excelProgressBar" style="width: 0%; height: 100%; background-color: #2ecc71; transition: width 0.3s ease;"></div>
+                    </div>
+                    <!-- Статистика -->
+                    <div style="display: flex; gap: 16px; margin-bottom: 12px; font-size: 12px; color: #666;">
+                        <div>Создано: <strong id="excelStatCreated" style="color: #2ecc71;">0</strong></div>
+                        <div>Обновлено: <strong id="excelStatUpdated" style="color: #3498db;">0</strong></div>
+                        <div>Ошибок: <strong id="excelStatErrors" style="color: #e74c3c;">0</strong></div>
+                    </div>
+                    <!-- Консоль логов -->
+                    <div id="excelLogConsole" style="background-color: #1e1e1e; color: #a9b7c6; font-family: monospace; font-size: 11px; padding: 10px; border-radius: 6px; height: 160px; overflow-y: auto; white-space: pre-wrap; line-height: 1.4; border: 1px solid #333;">
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="card">
+            <div class="card-header">
+                <div class="card-title">
+                    <i class="ph ph-upload"></i>
+                    <span>Импорт из CSV</span>
+                </div>
+            </div>
+            <div class="card-body">
+                <p style="color: #666; margin-bottom: 16px;">Загрузить CSV файл с товарами</p>
+                <input type="file" id="csvFile" accept=".csv" style="margin-bottom: 16px;">
+                <button onclick="importFromCSV()" class="btn btn-outline" style="width: 100%;">
+                    <i class="ph ph-upload"></i> Импортировать
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Загружаем категории для выпадающего списка
+async function loadCategories() {
+    try {
+        const response = await fetch('/api/warehouse/items');
+        const items = await response.json();
+        const categories = [...new Set(items.map(i => i.category).filter(c => c))];
+        const select = document.getElementById('category');
+        
+        categories.forEach(cat => {
+            const option = document.createElement('option');
+            option.value = cat;
+            option.textContent = cat;
+            select.appendChild(option);
+        });
+    } catch(e) {
+        console.error('Ошибка загрузки категорий', e);
+    }
+}
+
+// Добавление товара
+document.getElementById('addItemForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    
+    let unit = document.querySelector('input[name="unit"]:checked')?.value;
+    const customUnit = document.getElementById('customUnit').value;
+    if (customUnit) unit = customUnit;
+    
+    let category = document.getElementById('category').value;
+    const newCategory = document.getElementById('newCategory').value;
+    if (newCategory) category = newCategory;
+    
+    const newItem = {
+        fullName: document.getElementById('fullName').value,
+        shortName: document.getElementById('shortName').value,
+        sku: document.getElementById('sku').value || null,
+        category: category,
+        unit: unit,
+        totalStock: parseInt(document.getElementById('totalStock').value) || 0,
+        stockCount: parseInt(document.getElementById('totalStock').value) || 0,
+        lowStockThreshold: parseInt(document.getElementById('lowStockThreshold').value) || 5,
+        imageUrl: document.getElementById('imageUrl').value || null
+    };
+    
+    if (!newItem.fullName || !newItem.shortName || !newItem.category || !newItem.unit) {
+        alert('Заполните все обязательные поля!');
+        return;
+    }
+    
+    try {
+        const response = await fetch('/api/warehouse/items', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(newItem)
+        });
+        
+        if (response.ok) {
+            alert('Товар успешно добавлен!');
+            document.getElementById('addItemForm').reset();
+            loadCategories();
+            // Обновляем список товаров на странице каталога если открыт
+            if (window.location.pathname.includes('/desktop/parts_list')) {
+                location.reload();
+            }
+        } else {
+            alert('Ошибка при добавлении товара');
+        }
+    } catch (error) {
+        console.error('Ошибка:', error);
+        alert('Ошибка при добавлении товара');
+    }
+});
+
+// Экспорт в CSV
+async function exportToCSV() {
+    try {
+        const response = await fetch('/api/warehouse/items');
+        const items = await response.json();
+        
+        const headers = ['id', 'shortName', 'fullName', 'sku', 'category', 'unit', 'stockCount', 'totalStock', 'lowStockThreshold'];
+        const csvRows = [headers.join(',')];
+        
+        for (const item of items) {
+            const row = headers.map(header => `"${(item[header] || '').toString().replace(/"/g, '""')}"`).join(',');
+            csvRows.push(row);
+        }
+        
+        const blob = new Blob([csvRows.join('\n')], { type: 'text/csv;charset=utf-8;' });
+        const link = document.createElement('a');
+        const url = URL.createObjectURL(blob);
+        link.href = url;
+        link.setAttribute('download', 'warehouse_items.csv');
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+        
+        alert('Экспорт завершен!');
+    } catch (error) {
+        console.error('Ошибка экспорта:', error);
+        alert('Ошибка при экспорте');
+    }
+}
+
+// Импорт из CSV
+async function importFromCSV() {
+    const fileInput = document.getElementById('csvFile');
+    const file = fileInput.files[0];
+    
+    if (!file) {
+        alert('Выберите CSV файл');
+        return;
+    }
+    
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+        const text = e.target.result;
+        const rows = text.split('\n');
+        const headers = rows[0].split(',').map(h => h.replace(/"/g, '').trim());
+        
+        let successCount = 0;
+        let errorCount = 0;
+        
+        for (let i = 1; i < rows.length; i++) {
+            if (!rows[i].trim()) continue;
+            
+            const values = rows[i].split(',').map(v => v.replace(/"/g, '').trim());
+            const item = {};
+            headers.forEach((h, idx) => item[h] = values[idx]);
+            
+            if (item.shortName && item.fullName) {
+                try {
+                    await fetch('/api/warehouse/items', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            fullName: item.fullName,
+                            shortName: item.shortName,
+                            sku: item.sku,
+                            category: item.category || 'Прочее',
+                            unit: item.unit || 'шт',
+                            totalStock: parseInt(item.totalStock) || 0,
+                            stockCount: parseInt(item.stockCount) || 0,
+                            lowStockThreshold: parseInt(item.lowStockThreshold) || 5
+                        })
+                    });
+                    successCount++;
+                } catch(e) {
+                    errorCount++;
+                }
+            }
+        }
+        
+        alert(`Импорт завершен: ${successCount} добавлено, ${errorCount} ошибок`);
+        fileInput.value = '';
+        location.reload();
+    };
+    reader.readAsText(file, 'UTF-8');
+}
+
+let excelPollInterval = null;
+
+async function importFromExcel() {
+    const fileInput = document.getElementById('excelFile');
+    const file = fileInput.files[0];
+    const importBtn = document.getElementById('excelImportBtn');
+    
+    if (!file) {
+        alert('Выберите файл Excel (.xlsx)');
+        return;
+    }
+    
+    const formData = new FormData();
+    formData.append('file', file);
+    
+    importBtn.disabled = true;
+    importBtn.textContent = 'Загрузка файла...';
+    
+    // Показываем секцию прогресса и сбрасываем ее состояние
+    const progressSection = document.getElementById('excelProgressSection');
+    progressSection.style.display = 'block';
+    
+    document.getElementById('excelProgressStatus').textContent = 'Отправка файла на сервер...';
+    document.getElementById('excelProgressPercent').textContent = '0%';
+    document.getElementById('excelProgressBar').style.width = '0%';
+    document.getElementById('excelStatCreated').textContent = '0';
+    document.getElementById('excelStatUpdated').textContent = '0';
+    document.getElementById('excelStatErrors').textContent = '0';
+    
+    const consoleDiv = document.getElementById('excelLogConsole');
+    consoleDiv.innerHTML = '[SYSTEM] Инициализация загрузки...\n';
+    
+    try {
+        const userRole = '{{ user_role }}' || 'admin';
+        const response = await fetch(`/api/warehouse/import-excel?user_role=${userRole}`, {
+            method: 'POST',
+            body: formData
+        });
+        
+        if (response.ok) {
+            const data = await response.json();
+            const taskId = data.task_id;
+            consoleDiv.textContent += `[SYSTEM] Файл успешно получен сервером. Задача ID: ${taskId}\n`;
+            consoleDiv.textContent += `[SYSTEM] Запуск фонового процесса импорта...\n`;
+            
+            // Запускаем опрос статуса
+            if (excelPollInterval) clearInterval(excelPollInterval);
+            excelPollInterval = setInterval(() => pollExcelStatus(taskId), 2000);
+            
+            importBtn.textContent = 'Импорт выполняется в фоне...';
+        } else {
+            const err = await response.json();
+            alert(`Ошибка запуска импорта: ${err.detail || 'Неизвестная ошибка'}`);
+            importBtn.disabled = false;
+            importBtn.textContent = 'Импортировать Excel BOM';
+        }
+    } catch (error) {
+        console.error('Ошибка:', error);
+        alert('Ошибка при соединении с сервером');
+        importBtn.disabled = false;
+        importBtn.textContent = 'Импортировать Excel BOM';
+    }
+}
+
+async function pollExcelStatus(taskId) {
+    try {
+        const response = await fetch(`/api/warehouse/import-excel/status/${taskId}`);
+        if (!response.ok) return;
+        
+        const task = await response.json();
+        
+        // Обновляем прогресс-бар и текстовый статус
+        document.getElementById('excelProgressStatus').textContent = task.status_text || 'Обработка...';
+        document.getElementById('excelProgressPercent').textContent = `${task.progress}%`;
+        document.getElementById('excelProgressBar').style.width = `${task.progress}%`;
+        
+        // Обновляем статистику
+        document.getElementById('excelStatCreated').textContent = task.created_count;
+        document.getElementById('excelStatUpdated').textContent = task.updated_count;
+        document.getElementById('excelStatErrors').textContent = task.error_count;
+        
+        // Обновляем консоль логов
+        const consoleDiv = document.getElementById('excelLogConsole');
+        if (task.logs && task.logs.length > 0) {
+            const logsText = task.logs.join('\n');
+            if (consoleDiv.textContent !== logsText + '\n') {
+                consoleDiv.textContent = logsText + '\n';
+                consoleDiv.scrollTop = consoleDiv.scrollHeight;
+            }
+        }
+        
+        // Если задача завершена или упала
+        if (task.status === 'COMPLETED' || task.status === 'FAILED') {
+            clearInterval(excelPollInterval);
+            excelPollInterval = null;
+            
+            const importBtn = document.getElementById('excelImportBtn');
+            importBtn.disabled = false;
+            importBtn.textContent = 'Импортировать Excel BOM';
+            
+            if (task.status === 'COMPLETED') {
+                alert(`Импорт успешно завершен!\nДобавлено: ${task.created_count}\nОбновлено: ${task.updated_count}\nОшибок: ${task.error_count}`);
+            } else {
+                alert(`Ошибка импорта: ${task.status_text}`);
+            }
+            
+            // Очищаем форму выбора файла
+            document.getElementById('excelFile').value = '';
+        }
+    } catch (e) {
+        console.error('Ошибка опроса статуса задачи:', e);
+    }
+}
+
+// Загружаем категории при старте
+loadCategories();
+</script>
+
+{% endblock %}

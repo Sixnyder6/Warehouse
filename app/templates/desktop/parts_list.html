@@ -1,0 +1,1036 @@
+{% extends "base/desktop_base.html" %}
+
+{% block title %}Каталог запчастей{% endblock %}
+
+{% block content %}
+<style>
+    @keyframes spin {
+        from { transform: rotate(0deg); }
+        to { transform: rotate(360deg); }
+    }
+
+    /* Стили для поиска */
+    .search-input-wrapper {
+        position: relative;
+        flex: 1;
+    }
+    
+    .search-input {
+        width: 100%;
+        padding: 12px 16px 12px 44px;
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        font-size: 15px;
+        outline: none;
+        background: white;
+        color: var(--text-main);
+        transition: all 0.2s;
+        box-shadow: 0 1px 2px rgba(0,0,0,0.02);
+    }
+    
+    .search-input:focus {
+        border-color: var(--primary);
+        box-shadow: 0 0 0 3px var(--primary-bg);
+    }
+
+    /* Карточка товара — сетка */
+    .item-card {
+        background: white;
+        border: 1px solid var(--border);
+        border-radius: 16px;
+        overflow: hidden;
+        cursor: pointer;
+        transition: all 0.2s;
+        display: flex;
+        flex-direction: column;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.01);
+    }
+    .item-card:hover {
+        transform: translateY(-3px);
+        border-color: var(--primary);
+        box-shadow: 0 10px 15px -3px rgba(37,99,235,0.08);
+    }
+
+    .item-card-image {
+        width: 100%;
+        height: 180px;
+        background: var(--bg-main);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 56px;
+        color: #d1d5db;
+        position: relative;
+        border-bottom: 1px solid var(--border);
+    }
+    .item-card-image img {
+        width: 100%;
+        height: 100%;
+        object-fit: contain;
+        padding: 20px;
+        transition: transform 0.3s;
+    }
+    .item-card:hover .item-card-image img {
+        transform: scale(1.05);
+    }
+
+    /* Бейдж статуса запаса */
+    .stock-badge {
+        position: absolute;
+        top: 12px;
+        right: 12px;
+        padding: 4px 10px;
+        border-radius: 20px;
+        font-size: 11px;
+        font-weight: 700;
+        letter-spacing: 0.3px;
+        text-transform: uppercase;
+        backdrop-filter: blur(4px);
+    }
+    .stock-badge.critical { background: rgba(254, 242, 242, 0.9); color: var(--danger); border: 1px solid #fecaca; }
+    .stock-badge.low { background: rgba(255, 251, 235, 0.9); color: var(--warning); border: 1px solid #fde68a; }
+    .stock-badge.normal { background: rgba(240, 253, 244, 0.9); color: var(--success); border: 1px solid #bbf7d0; }
+    .stock-badge.high { background: rgba(239, 246, 255, 0.9); color: var(--primary); border: 1px solid #bfdbfe; }
+
+    .item-card-body {
+        padding: 16px;
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+    }
+
+    .item-card-name {
+        font-weight: 700;
+        font-size: 15px;
+        color: var(--text-main);
+        line-height: 1.3;
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+    }
+
+    .item-card-sku {
+        font-size: 13px;
+        color: var(--text-muted);
+        font-family: 'Courier New', Courier, monospace;
+        letter-spacing: 0.5px;
+    }
+
+    .item-card-category {
+        font-size: 11px;
+        color: var(--text-muted);
+        text-transform: uppercase;
+        font-weight: 600;
+        letter-spacing: 0.5px;
+    }
+
+    /* Индикатор запаса — визуальная полоска */
+    .stock-bar-container {
+        margin-top: 8px;
+        background: #f3f4f6;
+        border-radius: 6px;
+        height: 6px;
+        overflow: hidden;
+    }
+    .stock-bar {
+        height: 100%;
+        border-radius: 6px;
+        transition: width 0.5s ease;
+    }
+    .stock-bar.critical { background: var(--danger); }
+    .stock-bar.low { background: var(--warning); }
+    .stock-bar.normal { background: var(--success); }
+    .stock-bar.high { background: var(--primary); }
+
+    .item-card-footer {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-top: 10px;
+        padding-top: 10px;
+        border-top: 1px solid var(--border);
+    }
+    .stock-value {
+        font-weight: 800;
+        font-size: 18px;
+    }
+    .stock-value.critical { color: var(--danger); }
+    .stock-value.low { color: var(--warning); }
+    .stock-value.normal { color: var(--success); }
+    .stock-value.high { color: var(--primary); }
+
+    .stock-label {
+        font-size: 12px;
+        color: var(--text-muted);
+    }
+
+    /* Кнопки быстрых действий */
+    .quick-actions {
+        display: flex;
+        gap: 6px;
+        opacity: 0;
+        transition: opacity 0.2s;
+    }
+    .item-card:hover .quick-actions, .list-item:hover .quick-actions {
+        opacity: 1;
+    }
+    .quick-action-btn {
+        width: 34px;
+        height: 34px;
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        background: white;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 16px;
+        transition: all 0.15s;
+        color: var(--text-muted);
+    }
+    .quick-action-btn:hover { transform: translateY(-2px); }
+    .quick-action-btn.take:hover { background: var(--danger-bg); border-color: #fecaca; color: var(--danger); }
+    .quick-action-btn.add:hover { background: var(--success-bg); border-color: #bbf7d0; color: var(--success); }
+
+    /* Фильтры-категории */
+    .category-chip {
+        padding: 8px 18px;
+        border-radius: 24px;
+        background: white;
+        border: 1px solid var(--border);
+        font-size: 13px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.2s;
+        color: var(--text-muted);
+        box-shadow: 0 1px 2px rgba(0,0,0,0.02);
+    }
+    .category-chip:hover {
+        border-color: var(--primary);
+        color: var(--primary);
+        background: var(--primary-bg);
+    }
+    .category-chip.active {
+        background: var(--primary);
+        border-color: var(--primary);
+        color: white;
+        box-shadow: 0 2px 4px rgba(37, 99, 235, 0.2);
+    }
+
+    /* Переключатели вида */
+    .view-toggle {
+        width: 44px;
+        height: 44px;
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        background: white;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: all 0.2s;
+        color: var(--text-muted);
+        box-shadow: 0 1px 2px rgba(0,0,0,0.02);
+    }
+    .view-toggle.active {
+        border-color: var(--primary);
+        background: var(--primary-bg);
+        color: var(--primary);
+    }
+    .view-toggle:hover:not(.active) {
+        border-color: #d1d5db;
+        background: var(--bg-main);
+    }
+
+    /* Стоковая сводка */
+    .summary-chip {
+        padding: 8px 16px;
+        border-radius: 10px;
+        font-size: 13px;
+        font-weight: 600;
+        background: white;
+        border: 1px solid var(--border);
+        box-shadow: 0 1px 2px rgba(0,0,0,0.01);
+    }
+
+    /* Списочный вид */
+    .list-item {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        padding: 16px;
+        background: white;
+        border: 1px solid var(--border);
+        border-radius: 16px;
+        cursor: pointer;
+        transition: all 0.15s;
+        box-shadow: 0 1px 2px rgba(0,0,0,0.01);
+    }
+    .list-item:hover {
+        border-color: var(--primary);
+        box-shadow: 0 4px 12px rgba(37,99,235,0.08);
+        transform: translateY(-1px);
+    }
+    .list-item-image {
+        width: 56px;
+        height: 56px;
+        background: var(--bg-main);
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        overflow: hidden;
+        flex-shrink: 0;
+    }
+    .list-item-image img {
+        width: 100%;
+        height: 100%;
+        object-fit: contain;
+        padding: 4px;
+    }
+    .list-item-body {
+        flex: 1;
+        min-width: 0;
+    }
+    .list-item-name {
+        font-weight: 600;
+        font-size: 15px;
+        color: var(--text-main);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    .list-item-sku {
+        font-size: 13px;
+        color: var(--text-muted);
+        margin-top: 4px;
+    }
+    .list-item-stock {
+        font-weight: 700;
+        font-size: 18px;
+        flex-shrink: 0;
+        min-width: 70px;
+        text-align: right;
+    }
+    .list-item-stock.critical { color: var(--danger); }
+    .list-item-stock.low { color: var(--warning); }
+    .list-item-stock.normal { color: var(--success); }
+    .list-item-stock.high { color: var(--primary); }
+    
+    .list-item-actions {
+        display: flex;
+        gap: 6px;
+        flex-shrink: 0;
+    }
+
+    /* Модалки */
+    .modal-overlay {
+        display: none; 
+        position: fixed; 
+        top: 0; left: 0; right: 0; bottom: 0; 
+        background: rgba(17, 24, 39, 0.4); 
+        backdrop-filter: blur(4px);
+        z-index: 1000; 
+        justify-content: center; 
+        align-items: center;
+    }
+    .modal-content {
+        background: white; 
+        border-radius: 20px; 
+        padding: 28px; 
+        width: 380px; 
+        max-width: 90vw; 
+        box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1), 0 10px 10px -5px rgba(0,0,0,0.04);
+    }
+    
+    /* Стили для сайдбара и дерева категорий */
+    .category-tree-node {
+        transition: all 0.2s ease;
+    }
+    .category-tree-node:hover {
+        background: #f3f4f6;
+    }
+    .category-tree-node.active {
+        background: var(--primary-bg) !important;
+        color: var(--primary) !important;
+    }
+    
+    @media (max-width: 992px) {
+        .catalog-layout {
+            flex-direction: column;
+        }
+        .catalog-sidebar {
+            width: 100% !important;
+            position: relative !important;
+            top: 0 !important;
+            margin-bottom: 20px;
+        }
+    }
+</style>
+
+<!-- Шапка -->
+<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; flex-wrap: wrap; gap: 16px;">
+    <div>
+        <h1 style="font-size: 28px; font-weight: 800; color: var(--text-main); margin: 0; letter-spacing: -0.5px;">Каталог запчастей</h1>
+        <p style="color: var(--text-muted); font-size: 14px; margin: 6px 0 0 0;">Мгновенная работа с кэшем на устройстве (Local-First)</p>
+    </div>
+    <div style="display: flex; gap: 12px; align-items: center;">
+        <span id="totalCount" style="font-size: 13px; color: var(--text-muted); font-weight: 600; background: white; border: 1px solid var(--border); padding: 8px 16px; border-radius: 10px;"></span>
+        <button onclick="location.href='/desktop/import_export'" class="btn btn-primary" style="padding: 10px 18px; border-radius: 10px;">
+            <i class="ph ph-plus" style="font-size: 16px;"></i> Добавить новый
+        </button>
+    </div>
+</div>
+
+<!-- Поисковая строка -->
+<div style="margin-bottom: 20px;">
+    <div style="display: flex; gap: 12px; align-items: center;">
+        <div class="search-input-wrapper">
+            <i class="ph ph-magnifying-glass" style="position: absolute; left: 16px; top: 50%; transform: translateY(-50%); color: #9ca3af; font-size: 20px;"></i>
+            <input type="text" id="searchInput" class="search-input" placeholder="Искать по названию, артикулу или категории...">
+            <button id="clearSearchBtn" onclick="clearSearch()" style="display: none; position: absolute; right: 12px; top: 50%; transform: translateY(-50%); background: #f3f4f6; border: none; border-radius: 50%; width: 24px; height: 24px; color: var(--text-muted); cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.2s;">
+                <i class="ph ph-x"></i>
+            </button>
+        </div>
+        <div style="display: flex; gap: 8px;">
+            <button id="viewGrid" class="view-toggle active" onclick="setView('grid')" title="Сетка">
+                <i class="ph ph-squares-four" style="font-size: 22px;"></i>
+            </button>
+            <button id="viewList" class="view-toggle" onclick="setView('list')" title="Список">
+                <i class="ph ph-list" style="font-size: 22px;"></i>
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Сетка макета каталога с сайдбаром -->
+<div class="catalog-layout" style="display: flex; gap: 24px; align-items: flex-start; margin-bottom: 24px;">
+    <!-- Левая панель с деревом категорий -->
+    <div class="catalog-sidebar" style="width: 260px; flex-shrink: 0; background: white; border: 1px solid var(--border); border-radius: 16px; padding: 20px; position: sticky; top: 88px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.02);">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+            <h3 style="font-size: 13px; text-transform: uppercase; font-weight: 700; color: var(--text-muted); letter-spacing: 0.5px; margin: 0;">Категории</h3>
+            <button onclick="selectCategory('Все')" style="background: none; border: none; font-size: 12px; color: var(--primary); font-weight: 600; cursor: pointer; padding: 0;">Сбросить</button>
+        </div>
+        <div id="categoriesTree" style="display: flex; flex-direction: column; gap: 4px; max-height: 70vh; overflow-y: auto; padding-right: 4px;"></div>
+    </div>
+    
+    <!-- Правая основная часть -->
+    <div class="catalog-main" style="flex: 1; min-width: 0;">
+        <!-- Крошки навигации -->
+        <div id="breadcrumbs" style="display: flex; align-items: center; font-size: 13px; margin-bottom: 16px; flex-wrap: wrap; background: white; padding: 12px 18px; border: 1px solid var(--border); border-radius: 12px; box-shadow: 0 1px 2px rgba(0,0,0,0.01);"></div>
+        
+        <!-- Контейнер для сводки по стоку -->
+        <div id="stockSummary" style="display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 20px;"></div>
+
+        <!-- Сетка товаров -->
+        <div id="itemsGrid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 20px;"></div>
+
+        <!-- Список товаров (альтернативный вид) -->
+        <div id="itemsList" style="display: none; flex-direction: column; gap: 12px;"></div>
+
+        <!-- Загрузка -->
+        <div id="loading" style="text-align: center; padding: 60px; display: none;">
+            <i class="ph ph-spinner" style="font-size: 40px; animation: spin 1s linear infinite; color: var(--primary);"></i>
+            <p style="color: var(--text-muted); margin-top: 16px; font-weight: 500;">Загрузка каталога...</p>
+        </div>
+
+        <!-- Пусто -->
+        <div id="empty" style="text-align: center; padding: 80px 20px; color: var(--text-muted); display: none;">
+            <div style="width: 80px; height: 80px; background: #f3f4f6; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 16px;">
+                <i class="ph ph-package" style="font-size: 40px; color: #9ca3af;"></i>
+            </div>
+            <p style="font-size: 16px; font-weight: 500; color: var(--text-main);">Ничего не найдено</p>
+            <p style="font-size: 14px; margin-top: 4px;">Попробуйте изменить параметры поиска</p>
+            <button onclick="clearSearch()" class="btn btn-outline" style="margin-top: 16px; padding: 10px 24px;">Сбросить фильтры</button>
+        </div>
+    </div>
+</div>
+
+
+<!-- Модалка быстрого действия "Взять" -->
+<div id="takeModal" class="modal-overlay">
+    <div class="modal-content">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
+            <h3 style="margin: 0; font-size: 18px; font-weight: 700; color: var(--text-main); display: flex; align-items: center; gap: 8px;">
+                <i class="ph ph-arrow-up-right" style="color: var(--danger);"></i> Списать товар
+            </h3>
+            <button onclick="closeTakeModal()" style="background: none; border: none; font-size: 24px; cursor: pointer; color: var(--text-muted);">&times;</button>
+        </div>
+        <div id="takeModalItem" style="margin-bottom: 20px; padding: 12px; background: var(--bg-main); border: 1px solid var(--border); border-radius: 12px; display: flex; align-items: center; gap: 12px;">
+            <div style="width: 56px; height: 56px; background: white; border: 1px solid var(--border); border-radius: 8px; display: flex; align-items: center; justify-content: center; overflow: hidden; flex-shrink: 0;">
+                <img id="takeModalImg" style="width: 100%; height: 100%; object-fit: contain; padding: 4px;" src="">
+            </div>
+            <div>
+                <div id="takeModalName" style="font-weight: 600; font-size: 14px; color: var(--text-main);"></div>
+                <div id="takeModalSku" style="font-size: 12px; color: var(--text-muted); margin-top: 2px;"></div>
+                <div id="takeModalStock" style="font-size: 13px; color: var(--primary); font-weight: 600; margin-top: 4px;"></div>
+            </div>
+        </div>
+        <div style="margin-bottom: 24px;">
+            <label style="font-size: 13px; font-weight: 600; color: var(--text-main); display: block; margin-bottom: 8px;">Количество для списания:</label>
+            <div style="display: flex; gap: 12px; align-items: center;">
+                <button onclick="takeQty = Math.max(1, takeQty - 1); updateTakeQty()" style="width: 44px; height: 44px; border: 1px solid var(--border); border-radius: 10px; background: white; cursor: pointer; font-size: 20px; color: var(--text-main); transition: background 0.2s;">−</button>
+                <input type="number" id="takeQtyInput" value="1" min="1" style="flex: 1; text-align: center; padding: 10px; border: 1px solid var(--border); border-radius: 10px; font-size: 18px; font-weight: 700; color: var(--text-main); outline: none;">
+                <button onclick="takeQty = Math.min(999, takeQty + 1); updateTakeQty()" style="width: 44px; height: 44px; border: 1px solid var(--border); border-radius: 10px; background: white; cursor: pointer; font-size: 20px; color: var(--text-main); transition: background 0.2s;">+</button>
+            </div>
+        </div>
+        <div style="display: flex; gap: 12px;">
+            <button onclick="closeTakeModal()" style="flex: 1; padding: 12px; border: 1px solid var(--border); border-radius: 12px; background: white; color: var(--text-main); font-weight: 600; cursor: pointer; transition: background 0.2s;">Отмена</button>
+            <button id="takeConfirmBtn" onclick="confirmTake()" style="flex: 1; padding: 12px; border: none; border-radius: 12px; background: var(--danger); color: white; font-weight: 600; cursor: pointer; box-shadow: 0 4px 6px rgba(220, 38, 38, 0.2); transition: transform 0.1s;">Списать</button>
+        </div>
+    </div>
+</div>
+
+<!-- Модалка быстрого действия "Добавить" -->
+<div id="addModal" class="modal-overlay">
+    <div class="modal-content">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
+            <h3 style="margin: 0; font-size: 18px; font-weight: 700; color: var(--text-main); display: flex; align-items: center; gap: 8px;">
+                <i class="ph ph-plus-circle" style="color: var(--success);"></i> Пополнить товар
+            </h3>
+            <button onclick="closeAddModal()" style="background: none; border: none; font-size: 24px; cursor: pointer; color: var(--text-muted);">&times;</button>
+        </div>
+        <div id="addModalItem" style="margin-bottom: 20px; padding: 12px; background: var(--bg-main); border: 1px solid var(--border); border-radius: 12px; display: flex; align-items: center; gap: 12px;">
+            <div style="width: 56px; height: 56px; background: white; border: 1px solid var(--border); border-radius: 8px; display: flex; align-items: center; justify-content: center; overflow: hidden; flex-shrink: 0;">
+                <img id="addModalImg" style="width: 100%; height: 100%; object-fit: contain; padding: 4px;" src="">
+            </div>
+            <div>
+                <div id="addModalName" style="font-weight: 600; font-size: 14px; color: var(--text-main);"></div>
+                <div id="addModalSku" style="font-size: 12px; color: var(--text-muted); margin-top: 2px;"></div>
+                <div id="addModalStock" style="font-size: 13px; color: var(--primary); font-weight: 600; margin-top: 4px;"></div>
+            </div>
+        </div>
+        <div style="margin-bottom: 24px;">
+            <label style="font-size: 13px; font-weight: 600; color: var(--text-main); display: block; margin-bottom: 8px;">Количество для пополнения:</label>
+            <div style="display: flex; gap: 12px; align-items: center;">
+                <button onclick="addQty = Math.max(1, addQty - 1); updateAddQty()" style="width: 44px; height: 44px; border: 1px solid var(--border); border-radius: 10px; background: white; cursor: pointer; font-size: 20px; color: var(--text-main); transition: background 0.2s;">−</button>
+                <input type="number" id="addQtyInput" value="1" min="1" style="flex: 1; text-align: center; padding: 10px; border: 1px solid var(--border); border-radius: 10px; font-size: 18px; font-weight: 700; color: var(--text-main); outline: none;">
+                <button onclick="addQty = Math.min(999, addQty + 1); updateAddQty()" style="width: 44px; height: 44px; border: 1px solid var(--border); border-radius: 10px; background: white; cursor: pointer; font-size: 20px; color: var(--text-main); transition: background 0.2s;">+</button>
+            </div>
+        </div>
+        <div style="display: flex; gap: 12px;">
+            <button onclick="closeAddModal()" style="flex: 1; padding: 12px; border: 1px solid var(--border); border-radius: 12px; background: white; color: var(--text-main); font-weight: 600; cursor: pointer; transition: background 0.2s;">Отмена</button>
+            <button id="addConfirmBtn" onclick="confirmAdd()" style="flex: 1; padding: 12px; border: none; border-radius: 12px; background: var(--success); color: white; font-weight: 600; cursor: pointer; box-shadow: 0 4px 6px rgba(22, 163, 74, 0.2); transition: transform 0.1s;">Пополнить</button>
+        </div>
+    </div>
+</div>
+
+<!-- Toast уведомление -->
+<div id="toast" style="display: none; position: fixed; bottom: 32px; left: 50%; transform: translateX(-50%); background: #1f2937; color: white; padding: 14px 28px; border-radius: 12px; font-size: 14px; font-weight: 500; z-index: 2000; box-shadow: 0 10px 25px rgba(0,0,0,0.2); max-width: 90vw;"></div>
+
+<!-- Подключаем нашу библиотеку IndexedDB синхронизации -->
+<script src="/static/js/db-cache.js"></script>
+
+<script>
+    var items = [];
+    var selectedCategory = 'Все';
+    var categories = ['Все'];
+    var currentView = 'grid';
+    var takeQty = 1;
+    var addQty = 1;
+    var takeItemId = null;
+    var addItemId = null;
+
+    /**
+     * Отредактировано под Local-First: Читаем данные мгновенно из IndexedDB!
+     */
+    async function loadItems() {
+        // Если IndexedDB еще не загрузилась — ждем
+        if (typeof localDB === 'undefined' || !localDB) {
+            setTimeout(loadItems, 100);
+            return;
+        }
+
+        document.getElementById('loading').style.display = 'block';
+        document.getElementById('itemsGrid').style.display = 'none';
+        document.getElementById('itemsList').style.display = 'none';
+        document.getElementById('empty').style.display = 'none';
+
+        try {
+            // Читаем из локальной БД
+            items = await localDB.items.toArray();
+            
+            // Если база пустая (первый запуск) — принудительно синхронизируем
+            if (items.length === 0) {
+                console.log("Локальный кэш пуст. Запуск первой синхронизации...");
+                if (typeof pullServerChanges === 'function') {
+                    await pullServerChanges();
+                    items = await localDB.items.toArray();
+                }
+            }
+            render();
+        } catch (error) {
+            console.error('Ошибка чтения из IndexedDB:', error);
+            // Фолбэк на стандартный fetch если база упала
+            const response = await fetch('/api/warehouse/items');
+            items = await response.json();
+            render();
+        }
+    }
+
+    /**
+     * Callback для db-cache.js: срабатывает, когда фоновый Pull 
+     * скачал новые данные с сервера, чтобы обновить экран в реальном времени.
+     */
+    async function triggerUIRefresh() {
+        if (typeof localDB !== 'undefined' && localDB) {
+            items = await localDB.items.toArray();
+            render();
+        }
+    }
+
+    function getStockLevel(item) {
+        const stock = item.stockCount || 0;
+        const threshold = item.lowStockThreshold || 10;
+        if (stock <= 0) return 'critical';
+        if (stock <= threshold * 0.5) return 'critical';
+        if (stock <= threshold) return 'low';
+        if (stock <= threshold * 3) return 'normal';
+        return 'high';
+    }
+
+    function getStockLabel(item) {
+        const level = getStockLevel(item);
+        const labels = { critical: '⚠ Критично', low: '⬇ Мало', normal: '✓ Норма', high: '✓ Избыток' };
+        return labels[level];
+    }
+
+    function getStockPercent(item) {
+        const stock = item.stockCount || 0;
+        const threshold = item.lowStockThreshold || 10;
+        if (stock === 0) return 0;
+        if (threshold === 0) return 100;
+        return Math.min(100, Math.round((stock / (threshold * 3)) * 100));
+    }
+
+    function getSearchTerms(query) {
+        const synonyms = {
+            'матор': 'мотор',
+            'мотар': 'мотор',
+            'motor': 'мотор',
+            'калесо': 'колесо',
+            'колеса': 'колесо',
+            'wheel': 'колесо',
+            'аморт': 'амортизатор',
+            'аморты': 'амортизатор',
+            'перчи': 'перчатки',
+            'акб': 'аккумулятор',
+            'аккамулятор': 'аккумулятор',
+            'аккум': 'аккумулятор',
+            'ручка': 'тормоз'
+        };
+        query = query.trim().toLowerCase();
+        if (!query) return [];
+        
+        const terms = new Set([query]);
+        const words = query.split(/\s+/);
+        
+        words.forEach(word => {
+            if (synonyms[word]) {
+                terms.add(synonyms[word]);
+            }
+            for (const [typo, correct] of Object.entries(synonyms)) {
+                if (correct === word) {
+                    terms.add(typo);
+                }
+            }
+        });
+        
+        return Array.from(terms);
+    }
+
+    function buildCategoryTree(itemsList) {
+        const tree = {};
+        itemsList.forEach(item => {
+            const cat = item.category || 'Без категории';
+            const parts = cat.split('/');
+            let current = tree;
+            parts.forEach((part, index) => {
+                if (!current[part]) {
+                    current[part] = {
+                        name: part,
+                        path: parts.slice(0, index + 1).join('/'),
+                        count: 0,
+                        children: {}
+                    };
+                }
+                current[part].count++;
+                current = current[part].children;
+            });
+        });
+        return tree;
+    }
+
+    function renderCategoryTreeHTML(tree, level = 0) {
+        let html = '';
+        const sortedKeys = Object.keys(tree).sort();
+        
+        sortedKeys.forEach(key => {
+            const node = tree[key];
+            const hasChildren = Object.keys(node.children).length > 0;
+            const isSelected = selectedCategory === node.path;
+            const indent = level * 14;
+            
+            const icon = hasChildren 
+                ? `<i class="ph ph-folder" style="font-size: 15px; color: ${isSelected ? 'var(--primary)' : '#9ca3af'};"></i>` 
+                : `<i class="ph ph-hash" style="font-size: 13px; color: #d1d5db;"></i>`;
+            
+            html += `
+                <div class="category-tree-node ${isSelected ? 'active' : ''}" 
+                     style="padding: 8px 10px 8px ${10 + indent}px; display: flex; align-items: center; gap: 8px; border-radius: 8px; cursor: pointer; font-size: 13px; font-weight: 500; color: ${isSelected ? 'var(--primary)' : 'var(--text-muted)'}; background: ${isSelected ? 'var(--primary-bg)' : 'transparent'};"
+                     onclick="selectCategory('${node.path}')">
+                    ${icon}
+                    <span style="flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: ${isSelected ? 'var(--primary)' : 'var(--text-main)'}; font-weight: ${isSelected ? '700' : '500'};">${node.name}</span>
+                    <span style="font-size: 11px; background: ${isSelected ? 'var(--primary)' : '#f3f4f6'}; color: ${isSelected ? 'white' : 'var(--text-muted)'}; padding: 1px 6px; border-radius: 10px; font-weight: 600;">${node.count}</span>
+                </div>
+            `;
+            
+            if (hasChildren) {
+                html += renderCategoryTreeHTML(node.children, level + 1);
+            }
+        });
+        return html;
+    }
+
+    function renderBreadcrumbs() {
+        const breadcrumbsContainer = document.getElementById('breadcrumbs');
+        if (!breadcrumbsContainer) return;
+        
+        if (selectedCategory === 'Все') {
+            breadcrumbsContainer.innerHTML = `<span style="color: var(--text-muted); font-weight: 500;"><i class="ph ph-house" style="margin-right: 4px;"></i> Все товары</span>`;
+            return;
+        }
+        
+        const parts = selectedCategory.split('/');
+        let html = `<span style="color: var(--primary); cursor: pointer; font-weight: 500;" onclick="selectCategory('Все')"><i class="ph ph-house" style="margin-right: 4px;"></i> Все товары</span>`;
+        let pathAccumulator = '';
+        
+        parts.forEach((part, index) => {
+            pathAccumulator = pathAccumulator ? `${pathAccumulator}/${part}` : part;
+            const isLast = index === parts.length - 1;
+            html += ` <i class="ph ph-caret-right" style="font-size: 11px; color: var(--text-muted); margin: 0 6px; vertical-align: middle;"></i> `;
+            if (isLast) {
+                html += `<span style="color: var(--text-main); font-weight: 600;">${part}</span>`;
+            } else {
+                html += `<span style="color: var(--primary); cursor: pointer; font-weight: 500;" onclick="selectCategory('${pathAccumulator}')">${part}</span>`;
+            }
+        });
+        
+        breadcrumbsContainer.innerHTML = html;
+    }
+
+    function render() {
+        const tree = buildCategoryTree(items);
+        const sidebarTreeContainer = document.getElementById('categoriesTree');
+        if (sidebarTreeContainer) {
+            const totalItemsCount = items.length;
+            const isRootSelected = selectedCategory === 'Все';
+            let rootHTML = `
+                <div class="category-tree-node ${isRootSelected ? 'active' : ''}" 
+                     style="padding: 8px 10px; display: flex; align-items: center; gap: 8px; border-radius: 8px; cursor: pointer; font-size: 13px; font-weight: 600; color: ${isRootSelected ? 'var(--primary)' : 'var(--text-main)'}; background: ${isRootSelected ? 'var(--primary-bg)' : 'transparent'}; margin-bottom: 4px;"
+                     onclick="selectCategory('Все')">
+                    <i class="ph ph-stack" style="font-size: 15px; color: ${isRootSelected ? 'var(--primary)' : 'var(--text-muted)'};"></i>
+                    <span style="flex: 1;">Все товары</span>
+                    <span style="font-size: 11px; background: ${isRootSelected ? 'var(--primary)' : '#f3f4f6'}; color: ${isRootSelected ? 'white' : 'var(--text-muted)'}; padding: 1px 6px; border-radius: 10px; font-weight: 600;">${totalItemsCount}</span>
+                </div>
+            `;
+            sidebarTreeContainer.innerHTML = rootHTML + renderCategoryTreeHTML(tree, 0);
+        }
+
+        renderBreadcrumbs();
+
+        let filtered = items;
+        if (selectedCategory !== 'Все') {
+            filtered = filtered.filter(i => {
+                const cat = i.category || 'Без категории';
+                return cat === selectedCategory || cat.startsWith(selectedCategory + '/');
+            });
+        }
+
+        const searchQuery = document.getElementById('searchInput').value.toLowerCase();
+        const clearBtn = document.getElementById('clearSearchBtn');
+        if (searchQuery) {
+            const searchTerms = getSearchTerms(searchQuery);
+            filtered = filtered.filter(i => {
+                const shortName = (i.shortName || '').toLowerCase();
+                const fullName = (i.fullName || '').toLowerCase();
+                const sku = (i.sku || '').toLowerCase();
+                const category = (i.category || '').toLowerCase();
+                const keywords = (i.keywords || []).map(k => k.toLowerCase());
+                
+                return searchTerms.some(term => 
+                    shortName.includes(term) ||
+                    fullName.includes(term) ||
+                    sku.includes(term) ||
+                    category.includes(term) ||
+                    keywords.some(k => k.includes(term))
+                );
+            });
+            clearBtn.style.display = 'flex';
+        } else {
+            clearBtn.style.display = 'none';
+        }
+
+        const criticalCount = filtered.filter(i => getStockLevel(i) === 'critical').length;
+        const lowCount = filtered.filter(i => getStockLevel(i) === 'low').length;
+        const normalCount = filtered.filter(i => getStockLevel(i) === 'normal').length;
+        document.getElementById('stockSummary').innerHTML = `
+            <span class="summary-chip" style="background: var(--danger-bg); border-color: #fecaca; color: var(--danger);">
+                <i class="ph ph-warning-octagon"></i> Критично: ${criticalCount}
+            </span>
+            <span class="summary-chip" style="background: var(--warning-bg); border-color: #fde68a; color: var(--warning);">
+                <i class="ph ph-arrow-circle-down"></i> Мало: ${lowCount}
+            </span>
+            <span class="summary-chip" style="background: var(--success-bg); border-color: #bbf7d0; color: var(--success);">
+                <i class="ph ph-check-circle"></i> В норме: ${normalCount}
+            </span>
+        `;
+
+        document.getElementById('totalCount').innerHTML = `<i class="ph ph-stack"></i> Показано: ${filtered.length}`;
+
+        if (filtered.length === 0) {
+            document.getElementById('loading').style.display = 'none';
+            document.getElementById('itemsGrid').style.display = 'none';
+            document.getElementById('itemsList').style.display = 'none';
+            document.getElementById('empty').style.display = 'block';
+            return;
+        }
+
+        const grid = document.getElementById('itemsGrid');
+        grid.innerHTML = filtered.map(item => renderCard(item)).join('');
+
+        const list = document.getElementById('itemsList');
+        list.innerHTML = filtered.map(item => renderListItem(item)).join('');
+
+        document.getElementById('loading').style.display = 'none';
+        document.getElementById('empty').style.display = 'none';
+
+        if (currentView === 'grid') {
+            grid.style.display = 'grid';
+            list.style.display = 'none';
+        } else {
+            grid.style.display = 'none';
+            list.style.display = 'flex';
+        }
+    }
+
+    function renderCard(item) {
+        const level = getStockLevel(item);
+        const stock = item.stockCount || 0;
+        const percent = getStockPercent(item);
+        const imgSrc = item.imageUrl;
+        const placeholderIcon = '<i class="ph ph-package" style="font-size: 56px;"></i>';
+        const imgHtml = (imgSrc && !imgSrc.includes('placeholder'))
+            ? `<img src="${imgSrc}" alt="${item.shortName}" loading="lazy" onerror="this.style.display='none';this.parentElement.innerHTML='${placeholderIcon}'">`
+            : placeholderIcon;
+
+        return `
+            <div class="item-card" onclick="location.href='/desktop/part_detail?id=${item.id}'">
+                <div class="item-card-image">
+                    ${imgHtml}
+                    <span class="stock-badge ${level}">${getStockLabel(item)}</span>
+                </div>
+                <div class="item-card-body">
+                    <div class="item-card-category">${item.category || 'Общее'}</div>
+                    <div class="item-card-name" title="${item.fullName || item.shortName}">${item.shortName || 'Без названия'}</div>
+                    <div class="item-card-sku"><i class="ph ph-hash"></i> ${item.sku || '—'}</div>
+                    <div class="stock-bar-container">
+                        <div class="stock-bar ${level}" style="width: ${percent}%;"></div>
+                    </div>
+                    <div class="item-card-footer">
+                        <div>
+                            <span class="stock-value ${level}">${stock}</span>
+                            <span class="stock-label"> / ${item.unit || 'шт'}</span>
+                        </div>
+                        <div class="quick-actions">
+                            <button class="quick-action-btn take" onclick="event.stopPropagation(); openTakeModal('${item.id}')" title="Списать">
+                                <i class="ph ph-minus"></i>
+                            </button>
+                            <button class="quick-action-btn add" onclick="event.stopPropagation(); openAddModal('${item.id}')" title="Пополнить">
+                                <i class="ph ph-plus"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+
+    function renderListItem(item) {
+        const level = getStockLevel(item);
+        const stock = item.stockCount || 0;
+        const imgSrc = item.imageUrl;
+        const placeholderIcon = '<i class="ph ph-package" style="font-size: 28px; color: #9ca3af;"></i>';
+        const imgHtml = (imgSrc && !imgSrc.includes('placeholder'))
+            ? `<img src="${imgSrc}" alt="${item.shortName}" loading="lazy" onerror="this.style.display='none';this.parentElement.innerHTML='${placeholderIcon}'">`
+            : placeholderIcon;
+
+        return `
+            <div class="list-item" onclick="location.href='/desktop/part_detail?id=${item.id}'">
+                <div class="list-item-image">
+                    ${imgHtml}
+                </div>
+                <div class="list-item-body">
+                    <div class="list-item-name">${item.shortName || 'Без названия'}</div>
+                    <div class="list-item-sku"><i class="ph ph-hash"></i> ${item.sku || '—'} &nbsp;·&nbsp; ${item.category || 'Общее'}</div>
+                </div>
+                <div style="padding-right: 16px; border-right: 1px solid var(--border);">
+                    <div class="list-item-stock ${level}">${stock}</div>
+                    <div style="font-size: 11px; color: var(--text-muted); text-align: right; text-transform: uppercase;">${item.unit || 'шт'}</div>
+                </div>
+                <div class="list-item-actions" style="padding-left: 8px;">
+                    <button class="quick-action-btn take" onclick="event.stopPropagation(); openTakeModal('${item.id}')" title="Списать">
+                        <i class="ph ph-minus"></i>
+                    </button>
+                    <button class="quick-action-btn add" onclick="event.stopPropagation(); openAddModal('${item.id}')" title="Пополнить">
+                        <i class="ph ph-plus"></i>
+                    </button>
+                </div>
+            </div>
+        `;
+    }
+
+    function selectCategory(category) {
+        selectedCategory = category;
+        render();
+    }
+
+    function clearSearch() {
+        document.getElementById('searchInput').value = '';
+        render();
+    }
+
+    function setView(view) {
+        currentView = view;
+        document.getElementById('viewGrid').className = 'view-toggle' + (view === 'grid' ? ' active' : '');
+        document.getElementById('viewList').className = 'view-toggle' + (view === 'list' ? ' active' : '');
+        render();
+    }
+
+    var searchTimeout;
+    document.getElementById('searchInput').addEventListener('input', () => {
+        clearTimeout(searchTimeout);
+        searchTimeout = setTimeout(() => render(), 150);
+    });
+    document.getElementById('searchInput').addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') render();
+    });
+
+    // Модалки
+    function openTakeModal(itemId) {
+        takeItemId = itemId; takeQty = 1;
+        const item = items.find(i => i.id === itemId);
+        if (!item) return;
+        document.getElementById('takeModalImg').src = item.imageUrl || '';
+        document.getElementById('takeModalName').textContent = item.shortName || 'Без названия';
+        document.getElementById('takeModalSku').textContent = 'Арт: ' + (item.sku || '—');
+        document.getElementById('takeModalStock').textContent = `Доступно: ${item.stockCount || 0} ${item.unit || 'шт'}`;
+        document.getElementById('takeQtyInput').value = 1;
+        document.getElementById('takeModal').style.display = 'flex';
+    }
+    function closeTakeModal() { document.getElementById('takeModal').style.display = 'none'; }
+    function updateTakeQty() { document.getElementById('takeQtyInput').value = takeQty; }
+    document.getElementById('takeQtyInput').addEventListener('input', function() {
+        takeQty = Math.max(1, parseInt(this.value) || 1);
+        this.value = takeQty;
+    });
+
+    /**
+     * Оптимистичное списание: Изменение в базе IndexedDB за 0мс!
+     */
+    async function confirmTake() {
+        const btn = document.getElementById('takeConfirmBtn');
+        btn.disabled = true; 
+        btn.innerHTML = '<i class="ph ph-spinner" style="animation: spin 1s linear infinite;"></i> Обработка...';
+        
+        try {
+            // Выполняем операцию локально в IndexedDB
+            const res = await executeLocalOperation(
+                "TAKE", 
+                takeItemId, 
+                takeQty, 
+                "{{ user_name }}", 
+                "warehouseman"
+            );
+            
+            if (res.success) {
+                showToast(`✅ ${res.detail}`);
+                closeTakeModal();
+            } else {
+                showToast(`❌ ${res.detail}`);
+            }
+        } catch(e) { 
+            showToast('❌ Внутренняя ошибка'); 
+        }
+        
+        btn.disabled = false; 
+        btn.textContent = 'Списать';
+    }
+
+    function openAddModal(itemId) {
+        addItemId = itemId; addQty = 1;
+        const item = items.find(i => i.id === itemId);
+        if (!item) return;
+        document.getElementById('addModalImg').src = item.imageUrl || '';
+        document.getElementById('addModalName').textContent = item.shortName || 'Без названия';
+        document.getElementById('addModalSku').textContent = 'Арт: ' + (item.sku || '—');
+        document.getElementById('addModalStock').textContent = `Сейчас: ${item.stockCount || 0} ${item.unit || 'шт'}`;
+        document.getElementById('addQtyInput').value = 1;
+        document.getElementById('addModal').style.display = 'flex';
+    }
+    function closeAddModal() { document.getElementById('addModal').style.display = 'none'; }
+    function updateAddQty() { document.getElementById('addQtyInput').value = addQty; }
+    document.getElementById('addQtyInput').addEventListener('input', function() {
+        addQty = Math.max(1, parseInt(this.value) || 1);
+        this.value = addQty;
+    });
+
+    /**
+     * Оптимистичное пополнение: Изменение в базе IndexedDB за 0мс!
+     */
+    async function confirmAdd() {
+        const btn = document.getElementById('addConfirmBtn');
+        btn.disabled = true; 
+        btn.innerHTML = '<i class="ph ph-spinner" style="animation: spin 1s linear infinite;"></i> Обработка...';
+        
+        try {
+            // Выполняем операцию локально в IndexedDB
+            const res = await executeLocalOperation(
+                "ADD", 
+                addItemId, 
+                addQty, 
+                "{{ user_name }}", 
+                "warehouseman"
+            );
+            
+            if (res.success) {
+                showToast(`✅ ${res.detail}`);
+                closeAddModal();
+            } else {
+                showToast(`❌ ${res.detail}`);
+            }
+        } catch(e) { 
+            showToast('❌ Внутренняя ошибка'); 
+        }
+        
+        btn.disabled = false; 
+        btn.textContent = 'Пополнить';
+    }
+
+    function showToast(msg) {
+        const toast = document.getElementById('toast');
+        toast.textContent = msg;
+        toast.style.display = 'block';
+        setTimeout(() => { toast.style.display = 'none'; }, 3000);
+    }
+
+    document.getElementById('takeModal').addEventListener('click', function(e) { if (e.target === this) closeTakeModal(); });
+    document.getElementById('addModal').addEventListener('click', function(e) { if (e.target === this) closeAddModal(); });
+
+    // Загружаем при старте
+    loadItems();
+</script>
+{% endblock %}

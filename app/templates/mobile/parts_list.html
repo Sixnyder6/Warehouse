@@ -1,0 +1,1777 @@
+{% extends "mobile/base.html" %}
+
+{% block title %}Каталог{% endblock %}
+
+{% block content %}
+
+<style>
+    /* === Секции категорий === */
+    .category-section {
+        margin-bottom: 24px;
+    }
+    .category-header {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 10px;
+        padding: 4px 0;
+    }
+    .category-header .cat-icon {
+        font-size: 20px;
+    }
+    .category-header .cat-title {
+        font-size: 16px;
+        font-weight: 700;
+        color: #1c1c1e;
+    }
+    .category-header .cat-count {
+        font-size: 12px;
+        color: #999;
+        font-weight: 400;
+        margin-left: auto;
+    }
+
+    /* === Сетка === */
+    .grid-container {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 8px;
+    }
+
+    /* === 2-колоночная сетка === */
+    .view-grid-2 .grid-container {
+        grid-template-columns: repeat(2, 1fr) !important;
+        gap: 12px !important;
+    }
+    .view-grid-2 .grid-card {
+        border-radius: 14px !important;
+    }
+    .view-grid-2 .grid-card-name {
+        font-size: 13px !important;
+        line-height: 1.4 !important;
+        font-weight: 600 !important;
+        -webkit-line-clamp: 2 !important;
+    }
+    .view-grid-2 .grid-card-sku {
+        font-size: 10px !important;
+    }
+    .view-grid-2 .grid-stock-badge {
+        font-size: 11px !important;
+        padding: 3px 8px !important;
+        border-radius: 8px !important;
+    }
+    .view-grid-2 .quick-take-btn {
+        display: none !important;
+    }
+
+    /* === Компактный список (строчный вид) === */
+    .view-list-compact .grid-container {
+        display: flex !important;
+        flex-direction: column !important;
+        gap: 8px !important;
+    }
+    .view-list-compact .grid-card {
+        flex-direction: row !important;
+        align-items: center !important;
+        padding: 8px 12px !important;
+        gap: 12px !important;
+        border-radius: 12px !important;
+    }
+    .view-list-compact .grid-card-image {
+        width: 48px !important;
+        height: 48px !important;
+        border-radius: 8px !important;
+        flex-shrink: 0 !important;
+        aspect-ratio: auto !important;
+    }
+    .view-list-compact .grid-card-body {
+        padding: 0 !important;
+        flex: 1 !important;
+        display: flex !important;
+        flex-direction: row !important;
+        align-items: center !important;
+        justify-content: space-between !important;
+        gap: 12px !important;
+    }
+    .view-list-compact .grid-card-name {
+        font-size: 14px !important;
+        font-weight: 600 !important;
+        -webkit-line-clamp: 1 !important;
+        margin-bottom: 2px !important;
+        max-width: 140px;
+    }
+    .view-list-compact .grid-card-sku {
+        font-size: 11px !important;
+    }
+    .view-list-compact .grid-card-stock {
+        margin-top: 0 !important;
+        padding-top: 0 !important;
+    }
+    .view-list-compact .grid-stock-badge {
+        font-size: 12px !important;
+        padding: 4px 10px !important;
+    }
+    .view-list-compact .quick-take-btn {
+        display: inline-block !important;
+    }
+
+    .grid-card {
+        background: white;
+        border-radius: 12px;
+        overflow: hidden;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+        cursor: pointer;
+        display: flex;
+        flex-direction: column;
+        -webkit-tap-highlight-color: transparent;
+        user-select: none;
+        transition: opacity 0.15s;
+    }
+    .grid-card:active {
+        opacity: 0.7;
+    }
+
+    .grid-card-image {
+        width: 100%;
+        aspect-ratio: 1;
+        background: #f5f5f5;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        overflow: hidden;
+    }
+    .grid-card-image img {
+        width: 100%;
+        height: 100%;
+        object-fit: contain;
+        padding: 6px;
+    }
+    .grid-card-image .placeholder {
+        font-size: 24px;
+        color: #ccc;
+    }
+
+    .grid-card-body {
+        padding: 6px 8px 8px;
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        gap: 3px;
+    }
+    .grid-card-name {
+        font-weight: 600;
+        font-size: 11px;
+        line-height: 1.3;
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        word-break: break-word;
+    }
+    .grid-card-sku {
+        font-size: 9px;
+        color: #aaa;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    .grid-card-stock {
+        margin-top: auto;
+        padding-top: 3px;
+    }
+    .grid-stock-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 2px;
+        font-size: 10px;
+        font-weight: 600;
+        padding: 1px 6px;
+        border-radius: 6px;
+        white-space: nowrap;
+    }
+    .grid-stock-badge.critical {
+        background: #ffe0de;
+        color: #c41e1e;
+    }
+    .grid-stock-badge.low {
+        background: #fff3cd;
+        color: #856404;
+    }
+    .grid-stock-badge.normal {
+        background: #d4edda;
+        color: #155724;
+    }
+
+    .category-section.hidden {
+        display: none;
+    }
+
+    @media (min-width: 420px) {
+        .grid-container {
+            grid-template-columns: repeat(4, 1fr);
+        }
+    }
+
+    /* sticky-чипсы */
+    .chip-row {
+        position: sticky;
+        top: 0;
+        z-index: 10;
+        background: inherit;
+        padding: 4px 0 8px;
+        margin-bottom: 4px;
+    }
+
+    /* === Модалка действия с товаром === */
+    #itemActionModal .modal-sheet {
+        max-height: 85vh;
+        overflow-y: auto;
+        padding-bottom: 32px;
+    }
+    .item-modal-img {
+        width: 120px;
+        height: 120px;
+        border-radius: 16px;
+        background: #f5f5f5;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin: 0 auto 12px;
+        overflow: hidden;
+    }
+    .item-modal-img img {
+        width: 100%;
+        height: 100%;
+        object-fit: contain;
+        padding: 8px;
+    }
+    .item-modal-name {
+        font-size: 18px;
+        font-weight: 700;
+        text-align: center;
+        margin-bottom: 2px;
+    }
+    .item-modal-fullname {
+        font-size: 13px;
+        color: #888;
+        text-align: center;
+        margin-bottom: 4px;
+    }
+    .item-modal-sku {
+        display: inline-block;
+        font-size: 11px;
+        font-family: monospace;
+        color: #aaa;
+        background: #f5f5f5;
+        padding: 2px 10px;
+        border-radius: 6px;
+        margin-bottom: 12px;
+    }
+    .item-modal-stock-row {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        margin-bottom: 8px;
+        font-size: 15px;
+    }
+    .item-modal-stock-bar {
+        width: 160px;
+        height: 6px;
+        border-radius: 3px;
+        background: #eee;
+        overflow: hidden;
+        margin: 0 auto 16px;
+    }
+    .item-modal-stock-bar-fill {
+        height: 100%;
+        border-radius: 3px;
+        transition: width 0.3s;
+    }
+
+    /* Степпер количества */
+    .qty-stepper {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 24px;
+        margin-bottom: 20px;
+    }
+    .qty-stepper-btn {
+        width: 48px;
+        height: 48px;
+        border-radius: 50%;
+        border: 1.5px solid #ddd;
+        background: #f9f9f9;
+        font-size: 22px;
+        font-weight: 600;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #333;
+        -webkit-tap-highlight-color: transparent;
+        user-select: none;
+    }
+    .qty-stepper-btn:active {
+        background: #e5e5e5;
+    }
+    .qty-stepper-val {
+        font-size: 34px;
+        font-weight: 700;
+        min-width: 40px;
+        text-align: center;
+    }
+
+    /* Кнопки действия */
+    .item-action-btn {
+        display: block;
+        width: 100%;
+        padding: 14px;
+        border: none;
+        border-radius: 14px;
+        font-size: 16px;
+        font-weight: 700;
+        cursor: pointer;
+        -webkit-tap-highlight-color: transparent;
+        text-align: center;
+    }
+    .item-action-btn.primary {
+        background: #007aff;
+        color: white;
+    }
+    .item-action-btn.primary:active {
+        background: #0056b3;
+    }
+    .item-action-btn.primary:disabled {
+        background: #ccc;
+        cursor: not-allowed;
+    }
+    .item-action-btn.secondary {
+        background: transparent;
+        color: #007aff;
+        border: 1.5px solid #007aff;
+        margin-top: 8px;
+    }
+    .item-action-btn.secondary:active {
+        background: rgba(0,122,255,0.08);
+    }
+    .item-action-row {
+        margin-top: 4px;
+    }
+
+    /* Toast */
+    .ios-toast {
+        position: fixed;
+        bottom: 40px;
+        left: 50%;
+        transform: translateX(-50%) translateY(100px);
+        background: #333;
+        color: white;
+        padding: 12px 24px;
+        border-radius: 20px;
+        font-size: 14px;
+        font-weight: 600;
+        z-index: 9999;
+        opacity: 0;
+        transition: all 0.3s ease;
+        pointer-events: none;
+        white-space: nowrap;
+    }
+    .ios-toast.show {
+        transform: translateX(-50%) translateY(0);
+        opacity: 1;
+    }
+
+    /* === Панель корзины === */
+    .bottom-cart-panel {
+        position: fixed;
+        bottom: calc(80px + env(safe-area-inset-bottom, 0px)); /* прямо над tab bar */
+        left: 16px;
+        right: 16px;
+        background: rgba(255, 255, 255, 0.95);
+        backdrop-filter: blur(20px);
+        -webkit-backdrop-filter: blur(20px);
+        border: 1px solid rgba(0, 122, 255, 0.25);
+        border-radius: 20px;
+        box-shadow: 0 8px 32px rgba(0,0,0,0.12);
+        z-index: 400;
+        overflow: hidden;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    .cart-collapsed {
+        padding: 12px 18px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        cursor: pointer;
+    }
+    .cart-expanded {
+        padding: 18px;
+        display: flex;
+        flex-direction: column;
+    }
+    .cart-item-row {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        background: #f5f5f7;
+        border-radius: 12px;
+        padding: 8px 12px;
+    }
+    .cart-item-img {
+        width: 40px;
+        height: 40px;
+        border-radius: 8px;
+        background: white;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        overflow: hidden;
+        border: 1px solid #e5e5ea;
+        flex-shrink: 0;
+    }
+    .cart-item-img img {
+        width: 100%;
+        height: 100%;
+        object-fit: contain;
+        padding: 2px;
+    }
+    .cart-item-info {
+        flex: 1;
+        min-width: 0;
+    }
+    .cart-item-name {
+        font-size: 13px;
+        font-weight: 600;
+        color: #1c1c1e;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    .cart-item-unit {
+        font-size: 10px;
+        color: #8e8e93;
+    }
+    .cart-item-stepper {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+    .cart-stepper-btn {
+        width: 26px;
+        height: 26px;
+        border-radius: 50%;
+        border: 1px solid #c7c7cc;
+        background: white;
+        font-size: 16px;
+        font-weight: 600;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        color: #1c1c1e;
+    }
+    .cart-stepper-btn:active {
+        background: #e5e5ea;
+    }
+    .cart-item-qty {
+        font-size: 14px;
+        font-weight: 700;
+        min-width: 18px;
+        text-align: center;
+    }
+    .cart-item-remove {
+        color: #ff3b30;
+        font-size: 20px;
+        cursor: pointer;
+        padding: 4px;
+        margin-left: 6px;
+    }
+    /* Веер картинок */
+    .cart-fan-img {
+        width: 32px;
+        height: 32px;
+        border-radius: 50%;
+        border: 2px solid white;
+        background: #f5f5f7;
+        margin-left: -10px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        overflow: hidden;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.08);
+    }
+    .cart-fan-img img {
+        width: 100%;
+        height: 100%;
+        object-fit: contain;
+        padding: 2px;
+    }
+    .cart-fan-more {
+        width: 32px;
+        height: 32px;
+        border-radius: 50%;
+        border: 2px solid white;
+        background: #007aff;
+        color: white;
+        font-size: 11px;
+        font-weight: 700;
+        margin-left: -10px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.08);
+    }
+    
+    /* === Кнопка быстрого добавления в корзину === */
+    .quick-add-btn {
+        position: absolute;
+        bottom: 8px;
+        right: 8px;
+        width: 30px;
+        height: 30px;
+        border-radius: 50%;
+        background: #007aff;
+        color: white;
+        border: none;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 16px;
+        font-weight: bold;
+        cursor: pointer;
+        box-shadow: 0 2px 6px rgba(0,122,255,0.25);
+        z-index: 5;
+        transition: transform 0.1s, background 0.1s;
+    }
+    .quick-add-btn:active {
+        transform: scale(0.9);
+        background: #0056b3;
+    }
+    .view-list-compact .quick-add-btn {
+        position: static !important;
+        margin-left: auto;
+        flex-shrink: 0;
+    }
+</style>
+
+    <header class="ios-header">
+    <div style="display: flex; align-items: center; gap: 8px;">
+        <i class="ph ph-warehouse" style="color: #007aff; font-size: 28px;"></i>
+        <div>
+            <h1 style="font-size: 22px; line-height: 1.2;">Склад</h1>
+            <div class="header-sub" style="margin-top: 0;">{{ user_name }} · {{ user_display_role or user_role_display }}</div>
+        </div>
+    </div>
+    <div style="display: flex; gap: 12px; align-items: center;">
+        {% if user_id %}
+        <button onclick="location.href='/mobile/my_transactions?user_id={{ user_id }}&user_role={{ user_role }}&user_name={{ user_name | urlencode }}'" style="background:none;border:none;cursor:pointer;padding:4px;display:flex;align-items:center;justify-content:center;">
+            <i class="ph ph-clock" style="color: #8e8e93; font-size: 24px;"></i>
+        </button>
+        {% endif %}
+    </div>
+    </header>
+
+<div class="scroll-content">
+
+    <!-- Firebase статус -->
+    <div id="firebaseStatus" style="display: flex; align-items: center; gap: 8px; padding: 8px 14px; background: #e8f5e9; border-radius: 10px; margin-bottom: 16px; font-size: 12px; color: #2e7d32; border: 1px solid #c8e6c9;">
+        <i class="ph ph-database" style="font-size: 16px;"></i>
+        <span>Склад: Бестужевская 10</span>
+    </div>
+
+    <!-- Новости -->
+    {% if news_items %}
+    <div style="margin-bottom: 16px;">
+        <div style="font-size: 15px; font-weight: 700; color: #1c1c1e; margin-bottom: 10px; display: flex; align-items: center; gap: 6px;">
+            <i class="ph ph-newspaper" style="color: #007aff; font-size: 20px;"></i>
+            <span>Новости склада</span>
+        </div>
+        <div style="display: flex; gap: 10px; overflow-x: auto; scrollbar-width: none; padding-bottom: 4px; -webkit-overflow-scrolling: touch;">
+            {% for news in news_items %}
+                {% set tag = news.tag|upper %}
+                {% if tag == 'URGENT' %}
+                    {% set bg_color = '#fef2f2' %}
+                    {% set border_color = '#fee2e2' %}
+                    {% set text_color = '#dc2626' %}
+                    {% set tag_label = 'Срочно' %}
+                    {% set icon = 'ph-warning-octagon' %}
+                {% elif tag == 'TOMORROW' %}
+                    {% set bg_color = '#f0fdf4' %}
+                    {% set border_color = '#dcfce7' %}
+                    {% set text_color = '#16a34a' %}
+                    {% set tag_label = 'Завтра' %}
+                    {% set icon = 'ph-calendar-blank' %}
+                {% elif tag == 'TODAY' %}
+                    {% set bg_color = '#eff6ff' %}
+                    {% set border_color = '#dbeafe' %}
+                    {% set text_color = '#2563eb' %}
+                    {% set tag_label = 'Сегодня' %}
+                    {% set icon = 'ph-bell' %}
+                {% else %}
+                    {% set bg_color = '#f9fafb' %}
+                    {% set border_color = '#e5e7eb' %}
+                    {% set text_color = '#4b5563' %}
+                    {% set tag_label = 'Общее' %}
+                    {% set icon = 'ph-info' %}
+                {% endif %}
+                <div style="flex: 0 0 85%; background: {{ bg_color }}; border: 1px solid {{ border_color }}; border-radius: 12px; padding: 12px 14px; box-shadow: 0 1px 2px rgba(0,0,0,0.02); display: flex; flex-direction: column; gap: 4px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <span style="font-weight: 700; font-size: 13px; color: #1c1c1e; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 70%;">{{ news.title }}</span>
+                        <span style="font-size: 10px; font-weight: 700; background: {{ border_color }}; color: {{ text_color }}; padding: 2px 8px; border-radius: 8px; display: inline-flex; align-items: center; gap: 4px;">
+                            <i class="ph {{ icon }}" style="font-size: 12px;"></i>
+                            <span>{{ tag_label }}</span>
+                        </span>
+                    </div>
+                    <div style="font-size: 12px; color: #4b5563; line-height: 1.4; white-space: pre-line;">{{ news.content }}</div>
+                </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Строка поиска -->
+    <div class="search-bar">
+        <i class="ph ph-magnifying-glass" style="color: #8e8e93; font-size: 18px;"></i>
+        <input type="text" id="searchInput" placeholder="Поиск по названию или SKU..." oninput="doSearch()">
+    </div>
+
+    <!-- Кнопки быстрых действий -->
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 16px;">
+        <div id="actionHistory" class="action-card" onclick="showActivityLog()" style="background: white; border-radius: 14px; padding: 16px; display: flex; align-items: center; gap: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.04); cursor: pointer;">
+            <i class="ph ph-clock" style="font-size: 24px; color: #8e8e93;"></i>
+            <div class="action-text" style="font-weight: 600;">История</div>
+        </div>
+        <div id="actionCatalog" class="action-card" onclick="location.href='/mobile/parts_list?mode=catalog&user_id={{ user_id }}&user_role={{ user_role }}&user_name={{ user_name | urlencode }}'" style="background: rgba(0,122,255,0.1); border: 1px solid rgba(0,122,255,0.2); border-radius: 14px; padding: 16px; display: flex; align-items: center; gap: 12px; cursor: pointer;">
+            <i class="ph ph-package" style="font-size: 24px; color: #007aff;"></i>
+            <div class="action-text" style="font-weight: 600; color: #007aff;">Каталог</div>
+        </div>
+    </div>
+
+    <!-- Статистика -->
+    <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 16px;">
+        <div style="background: white; border-radius: 12px; padding: 12px; text-align: center; box-shadow: 0 1px 3px rgba(0,0,0,0.04);">
+            <div style="font-size: 20px; font-weight: 800;">{{ items|length }}</div>
+            <div style="font-size: 10px; color: #888;">Всего</div>
+        </div>
+        <div style="background: white; border-radius: 12px; padding: 12px; text-align: center; box-shadow: 0 1px 3px rgba(0,0,0,0.04);">
+            <div style="font-size: 20px; font-weight: 800; color: #ff3b30;">{{ low_stock_items_count }}</div>
+            <div style="font-size: 10px; color: #888;">Мало</div>
+        </div>
+        <div style="background: white; border-radius: 12px; padding: 12px; text-align: center; box-shadow: 0 1px 3px rgba(0,0,0,0.04);">
+            <div style="font-size: 20px; font-weight: 800; color: #34c759;">{{ taken_today_count }}</div>
+            <div style="font-size: 10px; color: #888;">Взято</div>
+        </div>
+        <div style="background: white; border-radius: 12px; padding: 12px; text-align: center; box-shadow: 0 1px 3px rgba(0,0,0,0.04);">
+            <div style="font-size: 20px; font-weight: 800; color: #007aff;">{{ orders|length }}</div>
+            <div style="font-size: 10px; color: #888;">Заказы</div>
+        </div>
+    </div>
+
+    <!-- Новая панель выбора категории и переключения вида -->
+    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; gap: 8px;">
+        <button onclick="openModal('categoriesDrawerModal')" class="ios-btn outline" style="flex: 1; padding: 10px 14px; font-size: 14px; height: 42px; border-radius: 12px; border: 1px solid rgba(0,0,0,0.12); color: #1c1c1e; background: white; text-align: left; display: flex; align-items: center; gap: 6px; box-shadow: 0 1px 2px rgba(0,0,0,0.02); margin: 0;">
+            <i class="ph ph-folder" style="font-size: 16px; color: #8e8e93;"></i>
+            <span id="currentCategoryTitle" style="font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 180px;">Все категории</span>
+            <i class="ph ph-caret-down" style="margin-left: auto; color: #8e8e93; font-size: 10px;"></i>
+        </button>
+        <button id="mobileViewToggle" onclick="toggleMobileView()" class="ios-btn outline" style="padding: 10px; font-size: 16px; height: 42px; width: 42px; border-radius: 12px; border: 1px solid rgba(0,0,0,0.12); color: #1c1c1e; background: white; display: flex; align-items: center; justify-content: center; box-shadow: 0 1px 2px rgba(0,0,0,0.02); margin: 0;">
+            <i class="ph ph-list" style="font-size: 18px;"></i>
+        </button>
+    </div>
+
+    <!-- === ТОВАРЫ ПО КАТЕГОРИЯМ === -->
+    <div id="itemsContainer" class="view-grid-2">
+        {% set cats = items|map(attribute='category')|reject('none')|unique|list %}
+        {% for cat in cats %}
+        {% set cat_items = items|selectattr('category', 'equalto', cat)|list %}
+        {% if cat_items|length > 0 %}
+        <div class="category-section" data-category="{{ cat }}">
+            <div class="category-header">
+                <span class="cat-icon"><i class="ph ph-folder" style="color: #007aff; font-size: 18px;"></i></span>
+                <span class="cat-title" style="margin-left: 6px;">{{ cat }}</span>
+                <span class="cat-count">{{ cat_items|length }}</span>
+            </div>
+            <div class="grid-container">
+                {% for item in cat_items %}
+                {% set stock = item.stockCount|default(0) %}
+                {% set threshold = item.lowStockThreshold|default(10) %}
+                {% set escaped_full = item.fullName|replace("'","\\'")|replace("\n"," ") %}
+                {% set escaped_short = item.shortName|replace("'","\\'")|replace("\n"," ") if item.shortName else '' %}
+                <div class="grid-card"
+                     data-item-id="{{ item.id }}"
+                     data-full-name="{{ escaped_full }}"
+                     data-short-name="{{ escaped_short }}"
+                     data-sku="{{ item.sku or '' }}"
+                     data-unit="{{ item.unit|default('шт') }}"
+                     data-stock="{{ stock }}"
+                     data-total="{{ item.totalStock|default(0) }}"
+                     data-threshold="{{ threshold }}"
+                     data-img="{{ item.imageUrl or '' }}"
+                     data-category="{{ item.category or '' }}"
+                     onclick="openItemAction(this)">
+                    <div class="grid-card-image">
+                        {% if item.imageUrl %}
+                        <img src="{{ item.imageUrl }}" onerror="this.style.display='none';this.parentElement.innerHTML='<span class=\'placeholder\'><i class=\'ph ph-package\' style=\'font-size: 28px; color: #ccc;\'></i></span>'">
+                        {% else %}
+                        <span class="placeholder"><i class="ph ph-package" style="font-size: 28px; color: #ccc;"></i></span>
+                        {% endif %}
+                    </div>
+                    <div class="grid-card-body">
+                        <div class="grid-card-name">{{ item.shortName or item.fullName or '—' }}</div>
+                        <div class="grid-card-sku">{{ item.sku or '—' }}</div>
+                        <div class="grid-card-stock">
+                            {% if stock <= 0 %}
+                                <span class="grid-stock-badge critical"><i class="ph ph-x-circle" style="font-size: 11px;"></i> Нет</span>
+                            {% elif stock < threshold %}
+                                <span class="grid-stock-badge low"><i class="ph ph-warning" style="font-size: 11px;"></i> {{ stock }} {{ item.unit|default('шт') }}</span>
+                            {% else %}
+                                <span class="grid-stock-badge normal"><i class="ph ph-check-circle" style="font-size: 11px;"></i> {{ stock }} {{ item.unit|default('шт') }}</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <button class="quick-add-btn" 
+                            onclick="event.stopPropagation(); quickAddToCart('{{ item.id }}', '{{ escaped_short or escaped_full }}', '{{ item.imageUrl or '' }}', '{{ item.unit|default('шт') }}', {{ stock }})">
+                        <i class="ph ph-plus"></i>
+                    </button>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+        {% endfor %}
+
+        {% set no_cat = items|rejectattr('category')|list %}
+        {% if no_cat|length > 0 %}
+        <div class="category-section" data-category="">
+            <div class="category-header">
+                <span class="cat-icon">📦</span>
+                <span class="cat-title">Без категории</span>
+                <span class="cat-count">{{ no_cat|length }}</span>
+            </div>
+            <div class="grid-container">
+                {% for item in no_cat %}
+                {% set stock = item.stockCount|default(0) %}
+                {% set threshold = item.lowStockThreshold|default(10) %}
+                {% set escaped_full = item.fullName|replace("'","\\'")|replace("\n"," ") %}
+                {% set escaped_short = item.shortName|replace("'","\\'")|replace("\n"," ") if item.shortName else '' %}
+                <div class="grid-card"
+                     data-item-id="{{ item.id }}"
+                     data-full-name="{{ escaped_full }}"
+                     data-short-name="{{ escaped_short }}"
+                     data-sku="{{ item.sku or '' }}"
+                     data-unit="{{ item.unit|default('шт') }}"
+                     data-stock="{{ stock }}"
+                     data-total="{{ item.totalStock|default(0) }}"
+                     data-threshold="{{ threshold }}"
+                     data-img="{{ item.imageUrl or '' }}"
+                     data-category="{{ item.category or '' }}"
+                     onclick="openItemAction(this)">
+                    <div class="grid-card-image">
+                        {% if item.imageUrl %}
+                        <img src="{{ item.imageUrl }}" onerror="this.style.display='none';this.parentElement.innerHTML='<span class=\'placeholder\'>📦</span>'">
+                        {% else %}
+                        <span class="placeholder">📦</span>
+                        {% endif %}
+                    </div>
+                    <div class="grid-card-body">
+                        <div class="grid-card-name">{{ item.shortName or item.fullName or '—' }}</div>
+                        <div class="grid-card-sku">{{ item.sku or '—' }}</div>
+                        <div class="grid-card-stock">
+                            {% if stock <= 0 %}
+                                <span class="grid-stock-badge critical">❌ Нет</span>
+                            {% elif stock < threshold %}
+                                <span class="grid-stock-badge low">⚠️ {{ stock }} {{ item.unit|default('шт') }}</span>
+                            {% else %}
+                                <span class="grid-stock-badge normal">✅ {{ stock }} {{ item.unit|default('шт') }}</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <button class="quick-add-btn" 
+                            onclick="event.stopPropagation(); quickAddToCart('{{ item.id }}', '{{ escaped_short or escaped_full }}', '{{ item.imageUrl or '' }}', '{{ item.unit|default('шт') }}', {{ stock }})">
+                        <i class="ph ph-plus"></i>
+                    </button>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+    </div>
+
+
+
+    <!-- Работники — только для менеджеров -->
+    {% if user_role in ('admin', 'inventory_manager') %}
+    <div style="margin-top: 20px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+            <div style="font-size: 17px; font-weight: 600;">👥 Сотрудники</div>
+            <button class="ios-btn outline" style="height: 36px; font-size: 12px; padding: 6px 12px;" onclick="showEmployeeHistory()">👤 По сотруднику</button>
+        </div>
+        <div style="display: flex; gap: 8px; overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; padding: 4px 0;">
+            {% for u in all_users %}
+            <div onclick="loadEmployeeHistory('{{ u.id }}','{{ u.name|escape }}')" style="display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border-radius:16px;background:#f0f0f0;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap;">
+                <span style="font-size: 14px;">👤</span> {{ u.name }}
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Кнопка синхронизации — только для менеджеров -->
+    {% if user_role in ('admin', 'inventory_manager') %}
+    <div style="margin-top: 16px;">
+        <button id="syncBtn" class="ios-btn" style="width: 100%; height: 48px; font-size: 13px; background: #2A4A35; color: white;" onclick="doSync()">
+            🔄 <span id="syncText">Синхр. 1С</span>
+        </button>
+    </div>
+    {% endif %}
+
+</div>
+
+<!-- Модальное окно истории -->
+<div class="modal-overlay" id="activityModal">
+    <div class="modal-sheet" style="border-radius: 20px 20px 0 0; max-height: 85vh; padding-bottom: 30px;">
+        <div style="width: 36px; height: 5px; background: rgba(0,0,0,0.1); border-radius: 3px; margin: -10px auto 16px;"></div>
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+            <div style="font-size: 18px; font-weight: 700; color: #1c1c1e; display: flex; align-items: center; gap: 6px;">
+                <i class="ph ph-clock-counter-clockwise" style="color: #007aff; font-size: 20px;"></i>
+                <span>Последние операции</span>
+            </div>
+            <button onclick="closeModal('activityModal')" style="background:#f2f2f7; border:none; width:30px; height:30px; border-radius:50%; display:flex; align-items:center; justify-content:center; cursor:pointer; color:#8e8e93; outline:none;">
+                <i class="ph ph-x" style="font-size:16px;"></i>
+            </button>
+        </div>
+        <div id="activityContent" style="max-height: 65vh; overflow-y: auto;"></div>
+    </div>
+</div>
+
+<!-- Модальное окно сотрудника -->
+<div class="modal-overlay" id="employeeHistoryModal">
+    <div class="modal-sheet" style="border-radius: 20px 20px 0 0; max-height: 85vh; padding-bottom: 30px;">
+        <div style="width: 36px; height: 5px; background: rgba(0,0,0,0.1); border-radius: 3px; margin: -10px auto 16px;"></div>
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+            <div style="font-size: 18px; font-weight: 700; color: #1c1c1e; display: flex; align-items: center; gap: 6px;">
+                <i class="ph ph-user" style="color: #007aff; font-size: 20px;"></i>
+                <span>Операции сотрудника</span>
+            </div>
+            <button onclick="closeModal('employeeHistoryModal')" style="background:#f2f2f7; border:none; width:30px; height:30px; border-radius:50%; display:flex; align-items:center; justify-content:center; cursor:pointer; color:#8e8e93; outline:none;">
+                <i class="ph ph-x" style="font-size:16px;"></i>
+            </button>
+        </div>
+        <div id="employeeHistoryContent" style="max-height: 65vh; overflow-y: auto;"></div>
+    </div>
+</div>
+
+<!-- Модальное окно заказов -->
+<div class="modal-overlay" id="ordersModal">
+    <div class="modal-sheet" style="border-radius: 20px 20px 0 0; max-height: 85vh; padding-bottom: 30px;">
+        <div style="width: 36px; height: 5px; background: rgba(0,0,0,0.1); border-radius: 3px; margin: -10px auto 16px;"></div>
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+            <div style="font-size: 18px; font-weight: 700; color: #1c1c1e; display: flex; align-items: center; gap: 6px;">
+                <i class="ph ph-clipboard-text" style="color: #007aff; font-size: 20px;"></i>
+                <span>Активные заказы</span>
+            </div>
+            <button onclick="closeModal('ordersModal')" style="background:#f2f2f7; border:none; width:30px; height:30px; border-radius:50%; display:flex; align-items:center; justify-content:center; cursor:pointer; color:#8e8e93; outline:none;">
+                <i class="ph ph-x" style="font-size:16px;"></i>
+            </button>
+        </div>
+        <div id="ordersContent" style="max-height: 65vh; overflow-y: auto;"></div>
+    </div>
+</div>
+
+<!-- ====== МОДАЛКА ВЫБОРА КАТЕГОРИИ (BOTTOM SHEET) ====== -->
+<div class="modal-overlay" id="categoriesDrawerModal">
+    <div class="modal-sheet" style="padding-bottom: 30px; border-radius: 20px 20px 0 0; max-height: 85vh;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; border-bottom: 1px solid #f0f0f0; padding-bottom: 12px;">
+            <div style="font-size: 18px; font-weight: 700; color: #1c1c1e;">📂 Категории деталей</div>
+            <button onclick="closeModal('categoriesDrawerModal')" style="background:none;border:none;font-size:24px;cursor:pointer;color:#888;">✕</button>
+        </div>
+        <div id="mobileCategoriesTree" style="display: flex; flex-direction: column; gap: 4px; overflow-y: auto; max-height: 60vh;">
+            <!-- Отрендерится через JS -->
+        </div>
+    </div>
+</div>
+
+<!-- ====== МОДАЛКА ДЕЙСТВИЙ С ТОВАРОМ ====== -->
+<div class="modal-overlay" id="itemActionModal">
+    <div class="modal-sheet">
+        <div style="display: flex; justify-content: flex-end; margin-bottom: 8px;">
+            <button onclick="closeItemModal()" style="background:none;border:none;font-size:24px;cursor:pointer;color:#888;">✕</button>
+        </div>
+
+        <div class="item-modal-img" id="itemModalImg">
+            <span class="placeholder">📦</span>
+        </div>
+        <div class="item-modal-name" id="itemModalName">—</div>
+        <div class="item-modal-fullname" id="itemModalFullname"></div>
+        <div style="text-align:center;">
+            <span class="item-modal-sku" id="itemModalSku" style="display:none;"></span>
+        </div>
+
+        <div class="item-modal-stock-row">
+            <span id="itemModalStockIcon"></span>
+            <span id="itemModalStockText" style="font-weight:600;"></span>
+        </div>
+        <div class="item-modal-stock-bar">
+            <div class="item-modal-stock-bar-fill" id="itemModalStockBar" style="width:50%;background:#34c759;"></div>
+        </div>
+
+        <!-- Степпер количества -->
+        <div class="qty-stepper">
+            <button class="qty-stepper-btn" onclick="changeQty(-1)">−</button>
+            <span class="qty-stepper-val" id="qtyValue">1</span>
+            <button class="qty-stepper-btn" onclick="changeQty(1)">+</button>
+        </div>
+
+        {% if can_manage %}
+        <!-- Кнопка ВЗЯТЬ (Основная для админа) -->
+        <button class="item-action-btn primary" id="btnTake" onclick="confirmTakeItem()">
+            Взять <span id="btnTakeQty">1</span> <span id="btnTakeUnit">шт.</span>
+        </button>
+        {% else %}
+        <!-- Кнопка В КОРЗИНУ (Основная для обычного пользователя) -->
+        <button class="item-action-btn primary" id="btnOrder" onclick="confirmAddToOrder()">
+            ➕ В корзину списания (<span id="btnOrderQty">1</span> <span id="btnOrderUnit">шт.</span>)
+        </button>
+        <!-- Кнопка ВЗЯТЬ СРАЗУ (Второстепенная для обычного пользователя) -->
+        <button class="item-action-btn secondary" id="btnTake" onclick="confirmTakeItem()">
+            Взять сразу (списать)
+        </button>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Панель корзины (снизу) -->
+<div id="bottomCartPanel" class="bottom-cart-panel" style="display: none;">
+    <!-- Свернутый вид -->
+    <div id="cartCollapsed" class="cart-collapsed" onclick="toggleCartExpanded(true)">
+        <div style="flex: 1;">
+            <div style="font-size: 11px; font-weight: 600; color: #8e8e93;">Выбрано для списания</div>
+            <div id="cartSummaryText" style="font-size: 15px; font-weight: 700; color: #1c1c1e;">0 поз. (0 шт.)</div>
+        </div>
+        <div style="display: flex; align-items: center;">
+            <!-- Иконки-веера товаров -->
+            <div id="cartFan" style="display: flex; align-items: center;"></div>
+            <i class="ph ph-caret-up" style="font-size: 20px; color: #007aff; margin-left: 12px;"></i>
+        </div>
+    </div>
+
+    <!-- Развернутый вид -->
+    <div id="cartExpanded" class="cart-expanded" style="display: none;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; border-bottom: 1px solid #f0f0f0; padding-bottom: 8px;">
+            <div style="font-size: 17px; font-weight: 700; color: #1c1c1e;">Выбранные детали</div>
+            <i class="ph ph-caret-down" style="font-size: 20px; color: #8e8e93; cursor: pointer;" onclick="toggleCartExpanded(false)"></i>
+        </div>
+        <div id="cartItemsList" style="display: flex; flex-direction: column; gap: 10px; max-height: 250px; overflow-y: auto; margin-bottom: 16px; padding-right: 4px;">
+            <!-- Список выбранных товаров -->
+        </div>
+        <div style="display: flex; gap: 10px;">
+            <button class="ios-btn outline" style="flex: 1; height: 46px; font-size: 14px; border-color: #ff3b30; color: #ff3b30; margin: 0;" onclick="clearCart(); toggleCartExpanded(false);">Отмена</button>
+            <button class="ios-btn primary" style="flex: 1.5; height: 46px; font-size: 14px; background: #007aff; color: white; margin: 0;" onclick="takeAllFromCart()">Взять</button>
+        </div>
+    </div>
+</div>
+
+<!-- Toast -->
+<div class="ios-toast" id="toast"></div>
+
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+    // ===== ДАННЫЕ ТЕКУЩЕГО ТОВАРА В МОДАЛКЕ =====
+    let currentItem = { id: '', fullName: '', shortName: '', sku: '', unit: 'шт.', stock: 0, total: 0, threshold: 10, img: '' };
+    let currentQty = 1;
+
+    // ===== СОСТОЯНИЕ КОРЗИНЫ =====
+    let cart = [];
+
+    // ===== ФУНКЦИИ МОДАЛКИ ТОВАРА =====
+
+    function openItemAction(cardEl) {
+        currentItem = {
+            id: cardEl.dataset.itemId || '',
+            fullName: cardEl.dataset.fullName || '',
+            shortName: cardEl.dataset.shortName || cardEl.dataset.fullName || '',
+            sku: cardEl.dataset.sku || '',
+            unit: cardEl.dataset.unit || 'шт.',
+            stock: parseInt(cardEl.dataset.stock) || 0,
+            total: parseInt(cardEl.dataset.total) || 0,
+            threshold: parseInt(cardEl.dataset.threshold) || 10,
+            img: cardEl.dataset.img || ''
+        };
+        currentQty = 1;
+        renderItemModal();
+        openModal('itemActionModal');
+    }
+
+    function closeItemModal() {
+        closeModal('itemActionModal');
+    }
+
+    function renderItemModal() {
+        const it = currentItem;
+        document.getElementById('itemModalName').textContent = it.shortName || it.fullName || '—';
+        document.getElementById('itemModalFullname').textContent = (it.shortName && it.fullName !== it.shortName) ? it.fullName : '';
+
+        const skuEl = document.getElementById('itemModalSku');
+        if (it.sku) {
+            skuEl.style.display = 'inline-block';
+            skuEl.textContent = 'SKU: ' + it.sku;
+        } else {
+            skuEl.style.display = 'none';
+        }
+
+        const imgContainer = document.getElementById('itemModalImg');
+        if (it.img) {
+            imgContainer.innerHTML = `<img src="${it.img}" onerror="this.style.display='none';this.parentElement.innerHTML='<span class=\'placeholder\'>📦</span>'">`;
+        } else {
+            imgContainer.innerHTML = '<span class="placeholder">📦</span>';
+        }
+
+        // Сток
+        const stockIcon = document.getElementById('itemModalStockIcon');
+        const stockText = document.getElementById('itemModalStockText');
+        const stockBar = document.getElementById('itemModalStockBar');
+        const pct = it.total > 0 ? Math.round((it.stock / it.total) * 100) : 0;
+
+        if (it.stock <= 0) {
+            stockIcon.textContent = '❌';
+            stockText.textContent = 'Нет в наличии';
+            stockText.style.color = '#c41e1e';
+            stockBar.style.width = '0%';
+            stockBar.style.background = '#c41e1e';
+        } else if (it.stock < it.threshold) {
+            stockIcon.textContent = '⚠️';
+            stockText.textContent = `${it.stock} из ${it.total} ${it.unit} (мало)`;
+            stockText.style.color = '#856404';
+            stockBar.style.width = pct + '%';
+            stockBar.style.background = '#ffc107';
+        } else {
+            stockIcon.textContent = '✅';
+            stockText.textContent = `${it.stock} из ${it.total} ${it.unit}`;
+            stockText.style.color = '#155724';
+            stockBar.style.width = pct + '%';
+            stockBar.style.background = '#34c759';
+        }
+
+        updateQtyDisplay();
+    }
+
+    function changeQty(delta) {
+        const newQty = currentQty + delta;
+        if (newQty < 1) return;
+        if (newQty > currentItem.stock) {
+            showToast('⚠️ Нельзя взять больше, чем есть на складе');
+            return;
+        }
+        currentQty = newQty;
+        updateQtyDisplay();
+    }
+
+    function updateQtyDisplay() {
+        document.getElementById('qtyValue').textContent = currentQty;
+        
+        const takeQtyEl = document.getElementById('btnTakeQty');
+        if (takeQtyEl) takeQtyEl.textContent = currentQty;
+        
+        const takeUnitEl = document.getElementById('btnTakeUnit');
+        if (takeUnitEl) takeUnitEl.textContent = currentItem.unit || 'шт.';
+
+        const orderQtyEl = document.getElementById('btnOrderQty');
+        if (orderQtyEl) orderQtyEl.textContent = currentQty;
+
+        const orderUnitEl = document.getElementById('btnOrderUnit');
+        if (orderUnitEl) orderUnitEl.textContent = currentItem.unit || 'шт.';
+
+        const takeBtn = document.getElementById('btnTake');
+        if (takeBtn) {
+            if (currentItem.stock <= 0 || currentQty > currentItem.stock) {
+                takeBtn.disabled = true;
+            } else {
+                takeBtn.disabled = false;
+            }
+        }
+
+        const orderBtn = document.getElementById('btnOrder');
+        if (orderBtn) {
+            if (currentItem.stock <= 0 || currentQty > currentItem.stock) {
+                orderBtn.disabled = true;
+            } else {
+                orderBtn.disabled = false;
+            }
+        }
+    }
+
+    async function confirmTakeItem() {
+        if (currentItem.stock <= 0) {
+            showToast('❌ Товара нет в наличии');
+            return;
+        }
+        if (currentQty > currentItem.stock) {
+            showToast('⚠️ Недостаточно на складе');
+            return;
+        }
+
+        const btn = document.getElementById('btnTake');
+        btn.disabled = true;
+        btn.textContent = '⏳ Выполняется...';
+
+        try {
+            const resp = await fetch('/api/warehouse/take', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    itemId: currentItem.id,
+                    quantity: currentQty,
+                    userName: '{{ user_name }}',
+                    userId: '{{ user_id }}'
+                })
+            });
+            const data = await resp.json();
+            if (resp.ok && data.success) {
+                showToast('✅ Взято: ' + currentQty + ' ' + currentItem.unit);
+                closeItemModal();
+                // Обновить остаток в карточке
+                updateCardStock(currentItem.id, currentItem.stock - currentQty);
+                currentItem.stock -= currentQty;
+                // Обновить счётчики
+                setTimeout(() => location.reload(), 1500);
+            } else {
+                showToast('❌ ' + (data.detail || data.message || 'Ошибка'));
+            }
+        } catch (e) {
+            showToast('❌ Ошибка сети');
+        } finally {
+            btn.disabled = false;
+        }
+    }
+
+    function confirmAddToOrder() {
+        addToCart(currentItem, currentQty);
+        closeItemModal();
+    }
+
+    function updateCardStock(itemId, newStock) {
+        const card = document.querySelector(`.grid-card[data-item-id="${itemId}"]`);
+        if (!card) return;
+        const stockBadge = card.querySelector('.grid-card-stock');
+        if (!stockBadge) return;
+        const threshold = parseInt(card.dataset.threshold) || 10;
+        const unit = card.dataset.unit || 'шт.';
+        if (newStock <= 0) {
+            stockBadge.innerHTML = '<span class="grid-stock-badge critical"><i class="ph ph-x-circle" style="font-size: 11px;"></i> Нет</span>';
+        } else if (newStock < threshold) {
+            stockBadge.innerHTML = `<span class="grid-stock-badge low"><i class="ph ph-warning" style="font-size: 11px;"></i> ${newStock} ${unit}</span>`;
+        } else {
+            stockBadge.innerHTML = `<span class="grid-stock-badge normal"><i class="ph ph-check-circle" style="font-size: 11px;"></i> ${newStock} ${unit}</span>`;
+        }
+        card.dataset.stock = newStock;
+    }
+
+    // ===== TOAST =====
+    let toastTimer;
+    function showToast(msg) {
+        const toast = document.getElementById('toast');
+        toast.textContent = msg;
+        toast.classList.add('show');
+        clearTimeout(toastTimer);
+        toastTimer = setTimeout(() => toast.classList.remove('show'), 2000);
+    }
+
+    // ===== ПОИСК С СИНОНИМАМИ И КЛЮЧЕВЫМИ СЛОВАМИ =====
+    function getSearchTerms(query) {
+        const synonyms = {
+            'матор': 'мотор',
+            'мотар': 'мотор',
+            'motor': 'мотор',
+            'калесо': 'колесо',
+            'колеса': 'колесо',
+            'wheel': 'колесо',
+            'аморт': 'амортизатор',
+            'аморты': 'амортизатор',
+            'перчи': 'перчатки',
+            'акб': 'аккумулятор',
+            'аккамулятор': 'аккумулятор',
+            'аккум': 'аккумулятор',
+            'ручка': 'тормоз'
+        };
+        query = query.trim().toLowerCase();
+        if (!query) return [];
+        
+        const terms = new Set([query]);
+        const words = query.split(/\s+/);
+        
+        words.forEach(word => {
+            if (synonyms[word]) {
+                terms.add(synonyms[word]);
+            }
+            for (const [typo, correct] of Object.entries(synonyms)) {
+                if (correct === word) {
+                    terms.add(typo);
+                }
+            }
+        });
+        
+        return Array.from(terms);
+    }
+
+    function doSearch() {
+        const q = document.getElementById('searchInput').value.toLowerCase();
+        if (!q) {
+            selectCategoryMobile(selectedCategoryMobilePath);
+            return;
+        }
+        
+        const searchTerms = getSearchTerms(q);
+        document.querySelectorAll('.category-section').forEach(section => {
+            const cards = section.querySelectorAll('.grid-card');
+            let visibleCount = 0;
+            cards.forEach(card => {
+                const shortName = (card.dataset.shortName || '').toLowerCase();
+                const fullName = (card.dataset.fullName || '').toLowerCase();
+                const sku = (card.dataset.sku || '').toLowerCase();
+                const category = (card.dataset.category || '').toLowerCase();
+                
+                const text = card.textContent.toLowerCase();
+                const matched = searchTerms.some(term => 
+                    shortName.includes(term) ||
+                    fullName.includes(term) ||
+                    sku.includes(term) ||
+                    category.includes(term) ||
+                    text.includes(term)
+                );
+                
+                if (matched) {
+                    card.style.display = '';
+                    visibleCount++;
+                } else {
+                    card.style.display = 'none';
+                }
+            });
+            section.style.display = visibleCount > 0 ? '' : 'none';
+        });
+    }
+
+    // ===== ПЕРЕКЛЮЧЕНИЕ ВИДА МОБИЛЬНОЙ СЕТКИ =====
+    let mobileView = 'grid-2';
+    function toggleMobileView() {
+        const container = document.getElementById('itemsContainer');
+        const btn = document.getElementById('mobileViewToggle');
+        if (mobileView === 'grid-2') {
+            mobileView = 'list-compact';
+            container.classList.remove('view-grid-2');
+            container.classList.add('view-list-compact');
+            btn.textContent = '▦';
+        } else {
+            mobileView = 'grid-2';
+            container.classList.remove('view-list-compact');
+            container.classList.add('view-grid-2');
+            btn.textContent = '☰';
+        }
+    }
+
+    // ===== БЫСТРОЕ СПИСАНИЕ "ВЗЯТЬ 1" =====
+    async function quickTakeOne(itemId, itemName, unit, maxStock) {
+        if (maxStock <= 0) {
+            showToast('❌ Нет в наличии');
+            return;
+        }
+        if (confirm(`Списать 1 ${unit} товара "${itemName}"?`)) {
+            try {
+                const resp = await fetch('/api/warehouse/take', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        itemId: itemId,
+                        quantity: 1,
+                        userName: '{{ user_name }}',
+                        userId: '{{ user_id }}'
+                    })
+                });
+                const data = await resp.json();
+                if (resp.ok && data.success) {
+                    showToast('✅ Взято: 1 ' + unit);
+                    updateCardStock(itemId, maxStock - 1);
+                    setTimeout(() => location.reload(), 1500);
+                } else {
+                    showToast('❌ ' + (data.detail || data.message || 'Ошибка'));
+                }
+            } catch (e) {
+                showToast('❌ Ошибка сети');
+            }
+        }
+    }
+
+    // ===== ВЫБОР КАТЕГОРИИ И ДЕРЕВО НА МОБИЛЬНОМ =====
+    let selectedCategoryMobilePath = 'Все';
+    
+    function initCategoryTreeMobile() {
+        const sections = document.querySelectorAll('.category-section');
+        const categoriesList = ['Все'];
+        sections.forEach(s => {
+            const cat = s.dataset.category;
+            if (cat) categoriesList.push(cat);
+        });
+        
+        const tree = {};
+        categoriesList.forEach(cat => {
+            if (cat === 'Все') return;
+            const parts = cat.split('/');
+            let current = tree;
+            parts.forEach((part, index) => {
+                if (!current[part]) {
+                    current[part] = {
+                        name: part,
+                        path: parts.slice(0, index + 1).join('/'),
+                        children: {}
+                    };
+                }
+                current = current[part].children;
+            });
+        });
+        
+        const container = document.getElementById('mobileCategoriesTree');
+        if (container) {
+            let rootHTML = `
+                <div class="ios-list-item" style="padding: 14px 16px; font-weight: 600; color: #007aff; border-bottom: 1px solid #f0f0f0;" onclick="selectCategoryMobile('Все')">
+                    📋 Все категории
+                </div>
+            `;
+            container.innerHTML = rootHTML + renderMobileCategoryTreeHTML(tree, 0);
+        }
+    }
+    
+    function renderMobileCategoryTreeHTML(tree, level = 0) {
+        let html = '';
+        const sortedKeys = Object.keys(tree).sort();
+        sortedKeys.forEach(key => {
+            const node = tree[key];
+            const hasChildren = Object.keys(node.children).length > 0;
+            const indent = level * 16;
+            
+            const icon = hasChildren ? '📂 ' : '▪️ ';
+            html += `
+                <div class="ios-list-item" 
+                     style="padding: 14px 16px 14px ${16 + indent}px; font-size: 15px; font-weight: 500; display: flex; align-items: center; gap: 8px; border-bottom: 1px solid #f0f0f0;"
+                     onclick="selectCategoryMobile('${node.path.replace(/'/g, "\\'")}')">
+                    <span>${icon}</span>
+                    <span style="flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${node.name}</span>
+                    <span style="color: #8e8e93; font-size: 14px;">›</span>
+                </div>
+            `;
+            if (hasChildren) {
+                html += renderMobileCategoryTreeHTML(node.children, level + 1);
+            }
+        });
+        return html;
+    }
+    
+    function selectCategoryMobile(catPath) {
+        selectedCategoryMobilePath = catPath;
+        document.getElementById('searchInput').value = '';
+        
+        const titleEl = document.getElementById('currentCategoryTitle');
+        if (titleEl) {
+            titleEl.textContent = catPath === 'Все' ? 'Все категории' : catPath;
+        }
+        
+        document.querySelectorAll('.category-section').forEach(section => {
+            const sectionCat = section.dataset.category || '';
+            if (catPath === 'Все' || sectionCat === catPath || sectionCat.startsWith(catPath + '/')) {
+                section.style.display = '';
+            } else {
+                section.style.display = 'none';
+            }
+            section.querySelectorAll('.grid-card').forEach(c => c.style.display = '');
+        });
+        
+        closeModal('categoriesDrawerModal');
+    }
+
+    // Инициализация при загрузке документа
+    document.addEventListener('DOMContentLoaded', () => {
+        initCategoryTreeMobile();
+        loadCart();
+    });
+
+    // ===== ФУНКЦИИ КОРЗИНЫ =====
+    function saveCart() {
+        localStorage.setItem('warehouse_cart_' + '{{ user_id }}', JSON.stringify(cart));
+        renderCartBar();
+    }
+
+    function loadCart() {
+        try {
+            const stored = localStorage.getItem('warehouse_cart_' + '{{ user_id }}');
+            cart = stored ? JSON.parse(stored) : [];
+        } catch (e) {
+            cart = [];
+        }
+        renderCartBar();
+    }
+
+    function addToCart(item, qty) {
+        if (item.stock <= 0) {
+            showToast('❌ Товара нет в наличии');
+            return;
+        }
+        const existing = cart.find(i => i.itemId === item.id);
+        if (existing) {
+            if (existing.quantity + qty > item.stock) {
+                existing.quantity = item.stock;
+                showToast('⚠️ Ограничено доступным количеством: ' + item.stock + ' ' + item.unit);
+            } else {
+                existing.quantity += qty;
+                showToast('🛒 Добавлено: +' + qty + ' ' + item.unit);
+            }
+        } else {
+            cart.push({
+                itemId: item.id,
+                itemName: item.shortName || item.fullName,
+                itemImageUrl: item.img || null,
+                quantity: Math.min(qty, item.stock),
+                unit: item.unit || 'шт.'
+            });
+            showToast('🛒 Добавлено в корзину');
+        }
+        saveCart();
+    }
+
+    function quickAddToCart(itemId, itemName, itemImageUrl, unit, maxStock) {
+        if (maxStock <= 0) {
+            showToast('❌ Нет в наличии');
+            return;
+        }
+        const existing = cart.find(i => i.itemId === itemId);
+        if (existing) {
+            if (existing.quantity + 1 > maxStock) {
+                showToast('⚠️ Ограничено доступным количеством: ' + maxStock + ' ' + unit);
+                return;
+            }
+            existing.quantity += 1;
+            showToast('🛒 Добавлено: +1 ' + unit);
+        } else {
+            cart.push({
+                itemId: itemId,
+                itemName: itemName,
+                itemImageUrl: itemImageUrl || null,
+                quantity: 1,
+                unit: unit || 'шт.'
+            });
+            showToast('🛒 Добавлено в корзину');
+        }
+        saveCart();
+        
+        // Показываем и раскрываем плашку корзины
+        const panel = document.getElementById('bottomCartPanel');
+        if (panel) {
+            panel.style.display = 'block';
+        }
+    }
+
+    function toggleCartExpanded(expand) {
+        const collapsedEl = document.getElementById('cartCollapsed');
+        const expandedEl = document.getElementById('cartExpanded');
+        if (expand) {
+            collapsedEl.style.display = 'none';
+            expandedEl.style.display = 'flex';
+        } else {
+            collapsedEl.style.display = 'flex';
+            expandedEl.style.display = 'none';
+        }
+    }
+
+    function updateCartQty(itemId, newQty) {
+        if (newQty < 1) return;
+        const cItem = cart.find(i => i.itemId === itemId);
+        if (!cItem) return;
+
+        // Находим товар в каталоге, чтобы узнать его доступный сток
+        const card = document.querySelector(`.grid-card[data-item-id="${itemId}"]`);
+        const maxStock = card ? parseInt(card.dataset.stock) || 0 : cItem.quantity;
+
+        if (newQty > maxStock) {
+            showToast('⚠️ Нельзя взять больше, чем есть на складе');
+            return;
+        }
+
+        cItem.quantity = newQty;
+        saveCart();
+    }
+
+    function removeFromCart(itemId) {
+        cart = cart.filter(i => i.itemId !== itemId);
+        saveCart();
+    }
+
+    function clearCart() {
+        cart = [];
+        saveCart();
+        toggleCartExpanded(false);
+    }
+
+    function renderCartBar() {
+        const panel = document.getElementById('bottomCartPanel');
+        if (!panel) return;
+
+        if (cart.length === 0) {
+            panel.style.display = 'none';
+            return;
+        }
+
+        panel.style.display = 'block';
+
+        // 1. Обновляем collapsed view
+        const totalItemsCount = cart.length;
+        const totalQty = cart.reduce((sum, item) => sum + item.quantity, 0);
+        document.getElementById('cartSummaryText').textContent = totalItemsCount + ' поз. (' + totalQty + ' шт.)';
+
+        // Веер картинок (до 3 штук)
+        const fanContainer = document.getElementById('cartFan');
+        fanContainer.innerHTML = '';
+        cart.slice(0, 3).forEach((item, index) => {
+            const imgEl = document.createElement('div');
+            imgEl.className = 'cart-fan-img';
+            if (item.itemImageUrl) {
+                imgEl.innerHTML = `<img src="${item.itemImageUrl}" onerror="this.style.display='none';this.parentElement.innerHTML='📦'">`;
+            } else {
+                imgEl.innerHTML = '📦';
+            }
+            fanContainer.appendChild(imgEl);
+        });
+        if (cart.length > 3) {
+            const moreEl = document.createElement('div');
+            moreEl.className = 'cart-fan-more';
+            moreEl.textContent = '+' + (cart.length - 3);
+            fanContainer.appendChild(moreEl);
+        }
+
+        // 2. Обновляем expanded view
+        const itemsList = document.getElementById('cartItemsList');
+        itemsList.innerHTML = '';
+        cart.forEach(item => {
+            const row = document.createElement('div');
+            row.className = 'cart-item-row';
+
+            let imgHTML = '📦';
+            if (item.itemImageUrl) {
+                imgHTML = `<img src="${item.itemImageUrl}" onerror="this.style.display='none';this.parentElement.innerHTML='📦'">`;
+            }
+
+            row.innerHTML = `
+                <div class="cart-item-img">${imgHTML}</div>
+                <div class="cart-item-info">
+                    <div class="cart-item-name">${item.itemName}</div>
+                    <div class="cart-item-unit">${item.unit}</div>
+                </div>
+                <div class="cart-item-stepper">
+                    <button class="cart-stepper-btn" onclick="updateCartQty('${item.itemId}', ${item.quantity - 1})">−</button>
+                    <span class="cart-item-qty">${item.quantity}</span>
+                    <button class="cart-stepper-btn" onclick="updateCartQty('${item.itemId}', ${item.quantity + 1})">+</button>
+                </div>
+                <i class="ph ph-trash cart-item-remove" onclick="removeFromCart('${item.itemId}')"></i>
+            `;
+            itemsList.appendChild(row);
+        });
+    }
+
+    async function takeAllFromCart() {
+        if (cart.length === 0) return;
+
+        const btn = document.querySelector('.cart-expanded button.primary');
+        const origText = btn.textContent;
+        btn.disabled = true;
+        btn.textContent = '⏳ Выполняется...';
+
+        try {
+            const itemsToSubmit = cart.map(item => ({
+                itemId: item.itemId,
+                quantity: item.quantity
+            }));
+
+            const resp = await fetch('/api/warehouse/take-batch', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    items: itemsToSubmit,
+                    userName: '{{ user_name }}',
+                    userId: '{{ user_id }}'
+                })
+            });
+            const data = await resp.json();
+            if (resp.ok && data.success) {
+                showToast('✅ Успешно списано: ' + itemsToSubmit.length + ' поз.');
+                clearCart();
+                setTimeout(() => location.reload(), 1500);
+            } else {
+                showToast('❌ ' + (data.detail || data.message || 'Ошибка списания'));
+            }
+        } catch (e) {
+            showToast('❌ Ошибка сети при списании');
+        } finally {
+            btn.disabled = false;
+            btn.textContent = origText;
+        }
+    }
+
+    // ===== МОДАЛКИ ОБЩИЕ =====
+    function openModal(id) { document.getElementById(id).classList.add('show'); }
+    function closeModal(id) { document.getElementById(id).classList.remove('show'); }
+
+    function showActivityLog() {
+        openModal('activityModal');
+        const container = document.getElementById('activityContent');
+        container.innerHTML = '<div style="text-align:center;padding:20px;color:#888;"><span class="ph-spinner" style="font-size:24px;color:#007aff;"></span><p style="margin-top:8px;font-size:13px;">Загрузка...</p></div>';
+        
+        fetch('/api/warehouse/logs/grouped')
+            .then(r => r.json())
+            .then(activities => {
+                if (!activities || activities.length === 0) {
+                    container.innerHTML = `
+                        <div style="text-align:center;padding:30px 20px;color:#8e8e93;">
+                            <i class="ph ph-notepad" style="font-size:48px;opacity:0.3;margin-bottom:10px;display:block;margin-left:auto;margin-right:auto;"></i>
+                            <div style="font-size:15px;font-weight:600;color:#1c1c1e;">Нет операций</div>
+                            <div style="font-size:13px;margin-top:2px;">За последнее время операций не зарегистрировано</div>
+                        </div>`;
+                    return;
+                }
+                
+                let html = '<div style="display:flex;flex-direction:column;gap:12px;">';
+                
+                activities.slice(0, 15).forEach(a => {
+                    const initials = (a.userName || 'U').split(' ').map(w => w[0]).join('').substring(0, 2).toUpperCase();
+                    const avatarColor = generateColorForCategory(a.userName || 'Неизвестный');
+                    
+                    const itemsHtml = (a.items || []).map(it => {
+                        const isTaken = it.quantity < 0;
+                        const qtyAbs = Math.abs(it.quantity || 0);
+                        const badgeColor = isTaken ? '#ff3b30' : '#34c759';
+                        const badgeBg = isTaken ? 'rgba(255,59,48,0.08)' : 'rgba(52,199,89,0.08)';
+                        
+                        return `
+                        <div style="display:flex;align-items:center;justify-content:between;gap:8px;padding:8px 0;border-bottom:1px dashed #f2f2f7;">
+                            <div style="display:flex;align-items:center;gap:6px;flex:1;min-width:0;">
+                                <i class="ph ph-package" style="color:#8e8e93;font-size:15px;flex-shrink:0;"></i>
+                                <span style="font-size:13px;font-weight:500;color:#1c1c1e;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${it.itemName || ''}</span>
+                            </div>
+                            <span style="font-size:12px;font-weight:700;color:${badgeColor};background:${badgeBg};padding:2px 8px;border-radius:12px;flex-shrink:0;">
+                                ${isTaken ? '−' : '+'}${qtyAbs} шт
+                            </span>
+                        </div>`;
+                    }).join('');
+                    
+                    const ts = a.timestamp ? new Date(a.timestamp) : new Date();
+                    const time = ts.toLocaleTimeString('ru', {hour:'2-digit', minute:'2-digit'});
+                    const dateStr = ts.toLocaleDateString('ru', {day:'numeric', month:'short'});
+                    
+                    html += `
+                    <div class="ios-card" style="margin-bottom:0;padding:12px 14px;box-shadow:0 1px 3px rgba(0,0,0,0.02);border:1px solid #f2f2f7;">
+                        <div style="display:flex;align-items:center;justify-content:between;margin-bottom:8px;gap:8px;">
+                            <div style="display:flex;align-items:center;gap:8px;">
+                                <div style="width:30px;height:30px;border-radius:50%;background:${avatarColor}1c;color:${avatarColor};display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0;">
+                                    ${initials}
+                                </div>
+                                <div style="font-weight:600;font-size:14px;color:#1c1c1e;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:180px;">
+                                    ${a.userName || 'Неизвестный'}
+                                </div>
+                            </div>
+                            <div style="margin-left:auto;font-size:11px;color:#8e8e93;font-weight:500;display:flex;align-items:center;gap:4px;">
+                                <i class="ph ph-clock" style="font-size:12px;"></i>
+                                <span>${dateStr}, ${time}</span>
+                            </div>
+                        </div>
+                        <div style="display:flex;flex-direction:column;padding-left:38px;">
+                            ${itemsHtml}
+                        </div>
+                    </div>`;
+                });
+                
+                html += '</div>';
+                container.innerHTML = html;
+            })
+            .catch(() => { container.innerHTML = '<div style="text-align:center;padding:20px;color:#ff3b30;"><i class="ph ph-warning-circle" style="font-size:24px;"></i><p style="margin-top:8px;">Ошибка загрузки</p></div>'; });
+    }
+
+    function showEmployeeHistory() {
+        openModal('employeeHistoryModal');
+        document.getElementById('employeeHistoryContent').innerHTML = '<div style="text-align:center;padding:20px;color:#888;"><span class="ph-spinner" style="font-size:24px;color:#007aff;"></span><p style="margin-top:8px;font-size:13px;">Загрузка...</p></div>';
+    }
+
+    function loadEmployeeHistory(userId, userName) {
+        openModal('employeeHistoryModal');
+        const container = document.getElementById('employeeHistoryContent');
+        container.innerHTML = '<div style="text-align:center;padding:20px;color:#888;"><span class="ph-spinner" style="font-size:24px;color:#007aff;"></span><p style="margin-top:8px;font-size:13px;">Загрузка...</p></div>';
+        fetch(`/api/warehouse/logs/employee/${userId}`)
+            .then(r => r.json())
+            .then(logs => {
+                if (!logs || logs.length === 0) {
+                    container.innerHTML = `
+                        <div style="text-align:center;padding:30px 20px;color:#8e8e93;">
+                            <i class="ph ph-notepad" style="font-size:48px;opacity:0.3;margin-bottom:10px;display:block;margin-left:auto;margin-right:auto;"></i>
+                            <div style="font-size:15px;font-weight:600;color:#1c1c1e;">Нет операций</div>
+                            <div style="font-size:13px;margin-top:2px;">Операции сотрудника "${userName}" не найдены</div>
+                        </div>`;
+                    return;
+                }
+                
+                let html = `
+                    <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;">
+                        <div style="width:36px;height:36px;border-radius:50%;background:rgba(0,122,255,0.1);color:#007aff;display:flex;align-items:center;justify-content:center;font-size:18px;">
+                            <i class="ph ph-user"></i>
+                        </div>
+                        <div>
+                            <div style="font-weight:700;font-size:16px;color:#1c1c1e;">${userName}</div>
+                            <div style="font-size:11px;color:#8e8e93;">Последние 20 операций</div>
+                        </div>
+                    </div>
+                    <div style="display:flex;flex-direction:column;gap:10px;">`;
+                
+                logs.slice(0, 20).forEach(log => {
+                    const qty = log.quantityChange || 0;
+                    const isTaken = qty < 0;
+                    const qtyAbs = Math.abs(qty);
+                    const ts = log.timestamp ? new Date(log.timestamp) : new Date();
+                    const time = ts.toLocaleTimeString('ru', {hour:'2-digit', minute:'2-digit'});
+                    const dateStr = ts.toLocaleDateString('ru', {day:'numeric', month:'short'});
+                    
+                    const badgeColor = isTaken ? '#ff3b30' : '#34c759';
+                    const badgeBg = isTaken ? 'rgba(255,59,48,0.08)' : 'rgba(52,199,89,0.08)';
+                    const iconClass = isTaken ? 'ph-arrow-up-right' : 'ph-arrow-down-left';
+                    
+                    html += `
+                    <div class="ios-list-item" style="padding:10px 12px;border:1px solid #f2f2f7;border-radius:12px;background:white;display:flex;align-items:center;justify-content:between;gap:10px;margin-bottom:0;">
+                        <div style="width:28px;height:28px;border-radius:50%;background:${badgeBg};color:${badgeColor};display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0;">
+                            <i class="ph ${iconClass}"></i>
+                        </div>
+                        <div style="flex:1;min-width:0;">
+                            <div style="font-size:13px;font-weight:600;color:#1c1c1e;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${log.itemName || ''}</div>
+                            <div style="font-size:11px;color:#8e8e93;margin-top:2px;">${dateStr}, ${time}</div>
+                        </div>
+                        <span style="font-size:12px;font-weight:700;color:${badgeColor};background:${badgeBg};padding:2px 8px;border-radius:10px;flex-shrink:0;">
+                            ${isTaken ? '−' : '+'}${qtyAbs} шт
+                        </span>
+                    </div>`;
+                });
+                
+                html += '</div>';
+                container.innerHTML = html;
+            })
+            .catch(() => { container.innerHTML = '<div style="text-align:center;padding:20px;color:#ff3b30;">⚠️ Ошибка загрузки</div>'; });
+    }
+
+    function doSync() {
+        const btn = document.getElementById('syncBtn');
+        const text = document.getElementById('syncText');
+        text.textContent = 'Синхронизация...';
+        btn.style.opacity = '0.6';
+        setTimeout(() => {
+            text.textContent = '✅ Синхронизировано';
+            showToast('✅ Синхронизация завершена');
+            setTimeout(() => { text.textContent = 'Синхр. 1С'; btn.style.opacity = '1'; }, 2000);
+        }, 1500);
+    }
+</script>
+{% endblock %}

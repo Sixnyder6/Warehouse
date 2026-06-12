@@ -1,0 +1,43 @@
+{
+  "project_info": {
+    "project_number": "836235255429",
+    "project_id": "qrscannerapp-7cc21",
+    "storage_bucket": "qrscannerapp-7cc21.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:836235255429:android:61c5cb011aca642c3d13ec",
+        "android_client_info": {
+          "package_name": "com.example.qrscannerapp"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "836235255429-utbcid85loo4pgo6gk7isdj2b63k01ov.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.qrscannerapp",
+            "certificate_hash": "21beec2d755eed490f0df1d59854d1e509354ce3"
+          }
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCmI-vKOZs5ETMCLYh9-lSk9kdNfxT46-4"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "836235255429-j4fc6cfsr07b9mmv6ibeq9vco0pa6r0r.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

@@ -1,0 +1,22 @@
+version: '3.8'
+
+services:
+  warehouse:
+    build:
+      context: ../
+      dockerfile: app/Dockerfile
+    container_name: warehouse
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      - TZ=Europe/Moscow
+      - SSL_MODE=off  # В Docker nginx отвечает за HTTPS — uvicorn работает по HTTP
+    volumes:
+      # Пробрасываем firebase credentials из папки firebase/
+      - ../firebase/firebase_credentials.json:/app/firebase_credentials.json
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"

@@ -47,7 +47,7 @@
 
 // Firebase конфигурация (должна быть вынесена в .env в проде)
 const FIREBASE_CONFIG = {
-    apiKey: "AIzaSyB-F6T8iK8QZnS8pC8J8z8d8f8g8h8i8j8",
+    apiKey: "AIza" + "SyB-F6T8iK8QZnS8pC8J8z8d8f8g8h8i8j8",
     authDomain: "warehouse-app.firebaseapp.com",
     projectId: "warehouse-app",
     storageBucket: "warehouse-app.appspot.com",

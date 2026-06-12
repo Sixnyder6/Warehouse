@@ -12,6 +12,7 @@ services:
     environment:
       - TZ=Europe/Moscow
       - SSL_MODE=off  # В Docker nginx отвечает за HTTPS — uvicorn работает по HTTP
+      - FIREBASE_CREDENTIALS_JSON
     volumes:
       # Пробрасываем firebase credentials из папки firebase/
       - ../firebase/firebase_credentials.json:/app/firebase/firebase_credentials.json

@@ -187,9 +187,9 @@ const App: React.FC = () => {
   // Redirect non-administrative roles (muver, electrician, technic, security, user) to mobile dashboard
   useEffect(() => {
     if (authState.is_logged_in && authState.role) {
-      const allowedRoles = ['admin', 'inventory_manager', 'supervisor'];
-      if (!allowedRoles.includes(authState.role)) {
-        console.log(`⚠️ User role ${authState.role} is not administrative. Redirecting to mobile dashboard.`);
+      const role = authState.role;
+      if (role !== 'admin' && role !== 'inventory_manager' && role !== 'supervisor') {
+        console.log(`⚠️ User role ${role} is not administrative. Redirecting to mobile dashboard.`);
         window.location.href = '/mobile/dashboard';
       }
     }

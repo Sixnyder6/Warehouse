@@ -75,6 +75,13 @@ if os.path.exists(FRONTEND_DIST_DIR):
 # Include authentication router
 app.include_router(auth_router, prefix="/api/auth")
 
+class MobileAccessDeniedException(Exception):
+    pass
+
+@app.exception_handler(MobileAccessDeniedException)
+async def mobile_access_denied_exception_handler(request: Request, exc: MobileAccessDeniedException):
+    return RedirectResponse(url="/desktop/dashboard", status_code=303)
+
 # ==========================================
 # КЭШ ДЛЯ ДАШБОРДА
 # ==========================================
@@ -1191,7 +1198,13 @@ async def _resolve_mobile_user(request: Request) -> dict:
     user_role = request.query_params.get("user_role", "").strip()
     user_name = request.query_params.get("user_name", "").strip()
 
-    # Если данные переданы через query — это веб-логин
+    # Попробуем также достать из куки/активной сессии, если нет в query
+    if not user_id:
+        auth_service = get_auth_service()
+        cookie_user_id = request.cookies.get("wms_user_id")
+        user_id = auth_service.current_user_id or cookie_user_id
+
+    # Если данные переданы или восстановлены
     if user_id:
         # Проверяем, есть ли сессия в _mobile_auth_sessions
         if user_id not in _mobile_auth_sessions:
@@ -1206,6 +1219,12 @@ async def _resolve_mobile_user(request: Request) -> dict:
 
         if user_id in _mobile_auth_sessions:
             session = _mobile_auth_sessions[user_id]
+            
+            # Если роль является административной — принудительно перенаправляем на десктоп
+            if session.role in [UserRole.ADMIN, UserRole.INVENTORY_MANAGER, UserRole.SUPERVISOR]:
+                logger.info(f"👮 Administrative user {user_id} ({session.role}) accessed mobile route. Redirecting to desktop.")
+                raise MobileAccessDeniedException()
+
             return {
                 "authenticated": True,
                 "user_id": user_id,
@@ -1416,6 +1435,19 @@ async def mobile_status():
 
 @app.get("/mobile/login")
 async def mobile_login(request: Request):
+    auth_service = get_auth_service()
+    cookie_user_id = request.cookies.get("wms_user_id")
+    user_id = auth_service.current_user_id or cookie_user_id
+    if user_id:
+        try:
+            user_state = await auth_service.get_user_state(user_id)
+            if user_state and user_state.is_logged_in:
+                if user_state.role in [UserRole.ADMIN, UserRole.INVENTORY_MANAGER, UserRole.SUPERVISOR]:
+                    return RedirectResponse(url="/desktop/dashboard", status_code=303)
+                else:
+                    return RedirectResponse(url="/mobile/dashboard", status_code=303)
+        except Exception:
+            pass
     return templates.TemplateResponse("mobile/mobile_login.html", {"request": request})
 
 

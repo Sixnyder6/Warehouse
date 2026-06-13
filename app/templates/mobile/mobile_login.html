@@ -244,8 +244,15 @@ async function doLogin() {
             sessionStorage.setItem('user_role', data.user_role);
             sessionStorage.setItem('user_display', data.user_display);
             sessionStorage.setItem('is_logged_in', 'true');
-            // Переход на экран начала смены
-            window.location.href = '/mobile/shift_lock?user_id=' + encodeURIComponent(data.user_id) + '&user_role=' + encodeURIComponent(data.user_role) + '&user_name=' + encodeURIComponent(data.user_name);
+            
+            // Если роль административная, перенаправляем на десктопную версию
+            const adminRoles = ['admin', 'inventory_manager', 'supervisor'];
+            if (adminRoles.includes(data.user_role)) {
+                window.location.href = '/desktop/dashboard';
+            } else {
+                // Переход на экран начала смены
+                window.location.href = '/mobile/shift_lock?user_id=' + encodeURIComponent(data.user_id) + '&user_role=' + encodeURIComponent(data.user_role) + '&user_name=' + encodeURIComponent(data.user_name);
+            }
         } else {
             errorEl.textContent = data.error || 'Ошибка входа';
             errorEl.classList.add('show');
@@ -264,7 +271,13 @@ if (sessionStorage.getItem('is_logged_in') === 'true') {
     const uid = sessionStorage.getItem('user_id') || '';
     const role = sessionStorage.getItem('user_role') || '';
     const name = sessionStorage.getItem('user_name') || '';
-    window.location.href = '/mobile/shift_lock?user_id=' + encodeURIComponent(uid) + '&user_role=' + encodeURIComponent(role) + '&user_name=' + encodeURIComponent(name);
+    
+    const adminRoles = ['admin', 'inventory_manager', 'supervisor'];
+    if (adminRoles.includes(role)) {
+        window.location.href = '/desktop/dashboard';
+    } else {
+        window.location.href = '/mobile/shift_lock?user_id=' + encodeURIComponent(uid) + '&user_role=' + encodeURIComponent(role) + '&user_name=' + encodeURIComponent(name);
+    }
 }
 </script>
 {% endblock %}

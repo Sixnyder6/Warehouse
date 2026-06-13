@@ -238,7 +238,7 @@ async def api_online_users():
     Возвращает список пользователей с их онлайн-статусом.
     Онлайн = lastSeen обновлялся в последние 3 минуты.
     """
-    users = await get_internal_users()
+    users = await get_internal_users(include_stats=False)
     now_ms = int(datetime.now(timezone.utc).timestamp() * 1000)
     ONLINE_THRESHOLD_MS = 180_000
 
@@ -281,6 +281,10 @@ async def api_ping(request: Request):
     now_ms = int(datetime.now(timezone.utc).timestamp() * 1000)
     success = await firestore_update_document("internal_users", user_id, {"lastSeen": now_ms})
     if success:
+        from app.services.telemetry_service import update_user_last_seen_in_cache
+        from app.services.warehouse_service import _cache
+        update_user_last_seen_in_cache(user_id, now_ms)
+        _cache.clear()
         return {"success": True, "lastSeen": now_ms}
     return {"success": False, "error": "Firestore update failed"}
 
@@ -299,7 +303,7 @@ async def api_db_telemetry(user_role: str = Query("", description="Роль по
     
     # Подсчет онлайн-пользователей
     try:
-        users = await get_internal_users()
+        users = await get_internal_users(include_stats=False)
         now_ms = int(datetime.now(timezone.utc).timestamp() * 1000)
         ONLINE_THRESHOLD_MS = 180_000
         online_count = 0
@@ -923,11 +927,11 @@ async def api_get_employees():
 
 @app.get("/api/internal-users")
 async def api_get_internal_users():
-    return await get_internal_users()
+    return await get_internal_users(include_stats=False)
 
 @app.get("/api/internal-users/presence")
 async def api_get_internal_users_presence():
-    users = await get_internal_users()
+    users = await get_internal_users(include_stats=True)
     presence_data = []
     for u in users:
         presence_data.append({
@@ -988,7 +992,7 @@ async def api_get_history(
             logger.error(f"Failed to parse lastTimestamp {lastTimestamp}: {e}")
             logs = []
     else:
-        logs = await get_logs(limit=3000)
+        logs = await get_logs(limit=1000)
 
     if employee:
         logs = [log for log in logs if log.get("userName") == employee or log.get("userId") == employee]
@@ -1553,7 +1557,7 @@ async def mobile_parts_list(request: Request):
     items = await get_items(limit=1000)
     orders = await get_orders(limit=100)
     logs = await get_logs(limit=200)
-    users = await get_internal_users()
+    users = await get_internal_users(include_stats=False)
     
     low_stock_items_count = sum(1 for item in items if item.get("stockCount", 0) < item.get("lowStockThreshold", 10))
     
@@ -1629,7 +1633,7 @@ async def mobile_my_transactions(request: Request):
             status_code=303
         )
         
-    users = await get_internal_users()
+    users = await get_internal_users(include_stats=False)
     all_users_list = []
     for u in users:
         all_users_list.append({

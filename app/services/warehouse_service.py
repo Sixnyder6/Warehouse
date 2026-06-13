@@ -41,7 +41,8 @@ from app.models import (
 from app.services.telemetry_service import (
     log_operation, is_read_budget_exceeded,
     get_cached_value, set_cached_value, clear_cached_value,
-    update_item_in_sqlite_cache, add_item_to_sqlite_cache, delete_item_from_sqlite_cache
+    update_item_in_sqlite_cache, add_item_to_sqlite_cache, delete_item_from_sqlite_cache,
+    clear_sqlite_logs_cache
 )
 
 # ==========================================
@@ -734,6 +735,7 @@ async def take_item(item_id: str, quantity: int, user_name: str, user_id: str = 
         await firestore_create_document("warehouse_logs", log_data)
         
         _cache.clear()
+        clear_sqlite_logs_cache()
         return True, f"{item_name}: -{quantity} {item.get('unit', 'шт')}"
     except Exception as e:
         return False, str(e)
@@ -792,6 +794,7 @@ async def take_items_batch(items: List[dict], user_name: str, user_id: str, time
             success_messages.append(f"{item_name}: -{quantity} {item.get('unit', 'шт')}")
 
         _cache.clear()
+        clear_sqlite_logs_cache()
         return True, ", ".join(success_messages)
     except Exception as e:
         return False, str(e)
@@ -830,6 +833,7 @@ async def add_stock(item_id: str, quantity: int, user_name: str, user_id: str = 
         await firestore_create_document("warehouse_logs", log_data)
         
         _cache.clear()
+        clear_sqlite_logs_cache()
         return True, f"{item_name}: +{quantity} {item.get('unit', 'шт')}"
     except Exception as e:
         return False, str(e)
@@ -977,6 +981,7 @@ async def take_item_to_recipient(
         await firestore_create_document("warehouse_logs", log_data)
         
         _cache.clear()
+        clear_sqlite_logs_cache()
         return True, f"{issuer_name} выдал {recipient_name}: {item_name} -{quantity} {item.get('unit', 'шт')}"
     except Exception as e:
         return False, str(e)
@@ -1034,6 +1039,7 @@ async def return_item_to_stock(
         await firestore_create_document("warehouse_logs", log_data)
         
         _cache.clear()
+        clear_sqlite_logs_cache()
         return True, f"{recipient_name} вернул: {item_name} +{quantity} {item.get('unit', 'шт')}"
     except Exception as e:
         return False, str(e)
@@ -1045,15 +1051,24 @@ async def return_item_to_stock(
 
 async def get_logs(limit: int = 50) -> List[dict]:
     cache_key = f"warehouse_logs_{limit}"
+    
+    # 1. Проверяем in-memory кэш
     cached = _cache.get(cache_key)
     if cached is not None:
         return cached
+        
+    # 2. Проверяем SQLite кэш
+    sqlite_cached = get_cached_value(cache_key)
+    if sqlite_cached is not None:
+        _cache.set(cache_key, sqlite_cached, ttl_seconds=120)
+        return sqlite_cached
     
     # Запрашиваем логи, упорядоченные по времени в порядке убывания (DESCENDING)
     logs = await firestore_query_ordered("warehouse_logs", "timestamp", "DESCENDING", limit=limit)
     
-    # Кэшируем логи на 10 минут
-    _cache.set(cache_key, logs, ttl_seconds=600)
+    # Кэшируем
+    _cache.set(cache_key, logs, ttl_seconds=120)
+    set_cached_value(cache_key, logs, ttl_seconds=1800) # В SQLite кэшируем на 30 минут
     return logs
 
 
@@ -1225,6 +1240,7 @@ async def complete_order(order_id: str, warehouse_man_name: str) -> Tuple[bool, 
             "completedAt": datetime.now(),
         })
         _cache.clear()
+        clear_sqlite_logs_cache()
 
         msg = "Заказ завершен. Товары списаны."
         if errors:
@@ -1258,6 +1274,7 @@ async def create_news(news_data: NewsItemCreate) -> Tuple[bool, str]:
         }
         await firestore_create_document("warehouse_news", data)
         _cache.clear()
+        clear_sqlite_logs_cache()
         return True, ""
     except Exception as e:
         return False, str(e)
@@ -1273,6 +1290,7 @@ async def update_news(news_id: str, news_data: NewsItemCreate) -> Tuple[bool, st
         success = await firestore_update_document("warehouse_news", news_id, updates)
         if success:
             _cache.clear()
+            clear_sqlite_logs_cache()
         return success, "" if success else "Ошибка обновления"
     except Exception as e:
         return False, str(e)
@@ -1283,6 +1301,7 @@ async def delete_news(news_id: str) -> Tuple[bool, str]:
         success = await firestore_delete_document("warehouse_news", news_id)
         if success:
             _cache.clear()
+            clear_sqlite_logs_cache()
         return success, "" if success else "Ошибка удаления"
     except Exception as e:
         return False, str(e)
@@ -1317,7 +1336,7 @@ async def get_today_activity_stats() -> Dict[str, Dict[str, int]]:
     # 2. Проверяем SQLite кэш
     sqlite_cached = get_cached_value(cache_key)
     if sqlite_cached is not None:
-        _cache.set(cache_key, sqlite_cached, ttl_seconds=60)
+        _cache.set(cache_key, sqlite_cached, ttl_seconds=300)
         return sqlite_cached
 
     try:
@@ -1351,16 +1370,16 @@ async def get_today_activity_stats() -> Dict[str, Dict[str, int]]:
             stats[creator_id]["scansToday"] += item_count
             stats[creator_id]["batchesToday"] += 1
             
-        _cache.set(cache_key, stats, ttl_seconds=60)
-        set_cached_value(cache_key, stats, ttl_seconds=300) # В SQLite кэшируем на 5 минут
+        _cache.set(cache_key, stats, ttl_seconds=300) # In-memory кэшируем на 5 минут
+        set_cached_value(cache_key, stats, ttl_seconds=900) # В SQLite кэшируем на 15 минут
         return stats
     except Exception as e:
         logger.error(f"❌ Ошибка получения статистики активности: {e}")
         return {}
 
 
-async def get_internal_users(limit: int = 100) -> List[dict]:
-    cache_key = f"internal_users_{limit}"
+async def get_internal_users(limit: int = 100, include_stats: bool = False) -> List[dict]:
+    cache_key = f"internal_users_{limit}_{'stats' if include_stats else 'light'}"
     
     # 1. Проверяем in-memory кэш
     cached = _cache.get(cache_key)
@@ -1370,30 +1389,31 @@ async def get_internal_users(limit: int = 100) -> List[dict]:
     # 2. Проверяем SQLite кэш
     sqlite_cached = get_cached_value(cache_key)
     if sqlite_cached is not None:
-        _cache.set(cache_key, sqlite_cached, ttl_seconds=60)
+        _cache.set(cache_key, sqlite_cached, ttl_seconds=60 if include_stats else 120)
         return sqlite_cached
     
     users, _ = await firestore_get_all_paginated("internal_users", page_size=limit)
     
-    # Подтягиваем сегодняшую активность
-    activity_stats = await get_today_activity_stats()
-    
-    # Вычисляем прошедшее время в часах для расчёта средней скорости сканирования
-    local_today = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
-    start_of_today_ms = int(local_today.timestamp() * 1000)
-    now_ms = int(time.time() * 1000)
-    hours_elapsed = max((now_ms - start_of_today_ms) / 3600000.0, 1.0)
-    
-    # Примешиваем статистику к каждому пользователю
-    for user in users:
-        user_id = user.get("id")
-        user_stats = activity_stats.get(user_id, {"scansToday": 0, "batchesToday": 0})
-        user["scansToday"] = user_stats["scansToday"]
-        user["batchesToday"] = user_stats["batchesToday"]
-        user["scanRatePerHour"] = int(user_stats["scansToday"] / hours_elapsed)
+    if include_stats:
+        # Подтягиваем сегодняшую активность
+        activity_stats = await get_today_activity_stats()
         
-    _cache.set(cache_key, users, ttl_seconds=60)
-    set_cached_value(cache_key, users, ttl_seconds=300) # В SQLite кэшируем на 5 минут
+        # Вычисляем прошедшее время в часах для расчёта средней скорости сканирования
+        local_today = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+        start_of_today_ms = int(local_today.timestamp() * 1000)
+        now_ms = int(time.time() * 1000)
+        hours_elapsed = max((now_ms - start_of_today_ms) / 3600000.0, 1.0)
+        
+        # Примешиваем статистику к каждому пользователю
+        for user in users:
+            user_id = user.get("id")
+            user_stats = activity_stats.get(user_id, {"scansToday": 0, "batchesToday": 0})
+            user["scansToday"] = user_stats["scansToday"]
+            user["batchesToday"] = user_stats["batchesToday"]
+            user["scanRatePerHour"] = int(user_stats["scansToday"] / hours_elapsed)
+        
+    _cache.set(cache_key, users, ttl_seconds=60 if include_stats else 120)
+    set_cached_value(cache_key, users, ttl_seconds=300 if include_stats else 900) # В SQLite кэшируем на 5 или 15 минут
     return users
 
 

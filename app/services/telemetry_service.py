@@ -312,6 +312,49 @@ def clear_cached_value(key: str):
     except Exception as e:
         logger.error(f"Error clearing sqlite cache for {key}: {e}")
 
+def clear_sqlite_logs_cache():
+    """
+    Удаляет все ключи кэша логов, новостей и статистики из SQLite.
+    """
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
+        cursor.execute("DELETE FROM wms_cache WHERE key LIKE 'warehouse_logs_%' OR key LIKE 'news_%' OR key = 'today_activity_stats'")
+        conn.commit()
+        conn.close()
+    except Exception as e:
+        logger.error(f"Error clearing sqlite logs/news cache: {e}")
+
+def update_user_last_seen_in_cache(user_id: str, last_seen: int):
+    """
+    Точечно обновляет поле lastSeen у пользователя во всех списках пользователей в SQLite-кэше.
+    """
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
+        cursor.execute("SELECT key, value FROM wms_cache WHERE key LIKE 'internal_users_%'")
+        rows = cursor.fetchall()
+        for key, value_str in rows:
+            try:
+                users = json.loads(value_str)
+                updated = False
+                for u in users:
+                    if u.get("id") == user_id:
+                        u["lastSeen"] = last_seen
+                        updated = True
+                if updated:
+                    cursor.execute(
+                        "UPDATE wms_cache SET value = ? WHERE key = ?",
+                        (json.dumps(users, default=str), key)
+                    )
+            except Exception as je:
+                logger.error(f"Error updating user lastSeen in cache key {key}: {je}")
+        conn.commit()
+        conn.close()
+    except Exception as e:
+        logger.error(f"Error updating user lastSeen in sqlite cache: {e}")
+
+
 def update_item_in_sqlite_cache(item_id: str, updates: dict):
     """
     Точечно обновляет поля товара во всех списках товаров, кэшированных в SQLite.

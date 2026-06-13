@@ -8,7 +8,7 @@
 
 import os
 import time
-from fastapi import FastAPI, Request, HTTPException, Query, Depends, BackgroundTasks, UploadFile, File, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, Request, HTTPException, Query, Depends, BackgroundTasks, UploadFile, File, WebSocket, WebSocketDisconnect, Response
 from fastapi.templating import Jinja2Templates
 from fastapi.responses import JSONResponse, RedirectResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
@@ -1091,7 +1091,7 @@ class MobileLoginRequest(BaseModel):
 _mobile_auth_sessions: dict = {}  # простейшая сессия: user_id -> auth_state
 
 @app.post("/api/mobile/login")
-async def mobile_api_login(request: Request):
+async def mobile_api_login(request: Request, response: Response):
     try:
         body = await request.json()
         login = body.get("login", body.get("email", "")).strip()
@@ -1111,6 +1111,16 @@ async def mobile_api_login(request: Request):
         # Сохраняем сессию
         _mobile_auth_sessions[auth_state.user_id] = auth_state
 
+        # Сохраняем user_id в HTTP-only cookie для восстановления сессии и редиректов
+        if auth_state.user_id:
+            response.set_cookie(
+                key="wms_user_id",
+                value=auth_state.user_id,
+                httponly=True,
+                max_age=60 * 60 * 24 * 7,  # 7 дней
+                samesite="lax",
+            )
+
         role_display = role_display_names.get(auth_state.role.value, "Сотрудник")
         return {
             "success": True,
@@ -1124,7 +1134,7 @@ async def mobile_api_login(request: Request):
         return {"success": False, "error": "Ошибка сервера. Попробуйте позже."}
 
 @app.post("/api/mobile/logout")
-async def mobile_api_logout(request: Request):
+async def mobile_api_logout(request: Request, response: Response):
     try:
         body = await request.json()
         user_id = body.get("user_id", "")
@@ -1136,6 +1146,7 @@ async def mobile_api_logout(request: Request):
         del _mobile_auth_sessions[user_id]
 
     await auth_service.logout()
+    response.delete_cookie(key="wms_user_id")
     return {"success": True}
 
 @app.get("/api/mobile/stats")

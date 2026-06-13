@@ -9,7 +9,7 @@
 
 const CACHE = {
   STATIC: 'warehouse-static-v1',
-  PAGES: 'warehouse-pages-v1',
+  PAGES: 'warehouse-pages-v2',
   FALLBACK: 'warehouse-fallback-v1',
 };
 

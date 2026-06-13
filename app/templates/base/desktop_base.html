@@ -15,6 +15,7 @@
       (function() {
         try {
           var iframe = document.createElement('iframe');
+          iframe.setAttribute('sandbox', 'allow-same-origin');
           iframe.style.display = 'none';
           document.documentElement.appendChild(iframe);
           if (iframe.contentWindow) {

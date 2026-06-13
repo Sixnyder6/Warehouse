@@ -11,6 +11,48 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
     <title>{% block title %}Склад{% endblock %}</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@phosphor-icons/web@2.1.1/src/css/icons.css">
+    <script>
+      (function() {
+        try {
+          var iframe = document.createElement('iframe');
+          iframe.style.display = 'none';
+          document.documentElement.appendChild(iframe);
+          if (iframe.contentWindow) {
+            var cleanArrayIncludes = iframe.contentWindow.Array.prototype.includes;
+            var cleanStringIncludes = iframe.contentWindow.String.prototype.includes;
+            var cleanGetOwnPropertyDescriptor = iframe.contentWindow.Object.getOwnPropertyDescriptor;
+
+            if (cleanArrayIncludes) {
+              Object.defineProperty(Array.prototype, 'includes', {
+                value: cleanArrayIncludes,
+                writable: true,
+                enumerable: false,
+                configurable: true
+              });
+            }
+            if (cleanStringIncludes) {
+              Object.defineProperty(String.prototype, 'includes', {
+                value: cleanStringIncludes,
+                writable: true,
+                enumerable: false,
+                configurable: true
+              });
+            }
+            if (cleanGetOwnPropertyDescriptor) {
+              Object.defineProperty(Object, 'getOwnPropertyDescriptor', {
+                value: cleanGetOwnPropertyDescriptor,
+                writable: true,
+                enumerable: false,
+                configurable: true
+              });
+            }
+          }
+          document.documentElement.removeChild(iframe);
+        } catch (e) {
+          console.error('Failed to restore native prototypes:', e);
+        }
+      })();
+    </script>
     <style>
         /* Глобальные цветовые переменные */
         :root {

@@ -25,25 +25,25 @@
             if (cleanArrayIncludes) {
               Object.defineProperty(Array.prototype, 'includes', {
                 value: cleanArrayIncludes,
-                writable: true,
+                writable: false,
                 enumerable: false,
-                configurable: true
+                configurable: false
               });
             }
             if (cleanStringIncludes) {
               Object.defineProperty(String.prototype, 'includes', {
                 value: cleanStringIncludes,
-                writable: true,
+                writable: false,
                 enumerable: false,
-                configurable: true
+                configurable: false
               });
             }
             if (cleanGetOwnPropertyDescriptor) {
               Object.defineProperty(Object, 'getOwnPropertyDescriptor', {
                 value: cleanGetOwnPropertyDescriptor,
-                writable: true,
+                writable: false,
                 enumerable: false,
-                configurable: true
+                configurable: false
               });
             }
           }

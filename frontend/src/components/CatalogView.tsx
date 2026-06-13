@@ -27,6 +27,11 @@ interface CatalogViewProps {
   currentUserState: AuthState;
 }
 
+/** Remove non-serializable properties from Dexie objects before React state */
+function sanitizeItems(raw: any[]): WarehouseItem[] {
+  return JSON.parse(JSON.stringify(raw));
+}
+
 export const CatalogView: React.FC<CatalogViewProps> = ({ currentUserState }) => {
   const [items, setItems] = useState<WarehouseItem[]>([]);
   const [employees, setEmployees] = useState<Employee[]>([]);
@@ -83,14 +88,14 @@ export const CatalogView: React.FC<CatalogViewProps> = ({ currentUserState }) =>
     try {
       // 1. Fetch from local Dexie IndexedDB (0ms delay)
       let localItems = await db.items.toArray();
-      setItems(localItems);
+      setItems(sanitizeItems(localItems));
 
       // 2. Fetch fresh catalog updates and employees from server if online
       if (navigator.onLine) {
         // Run full sync to get delta updates
         await triggerSync();
         localItems = await db.items.toArray();
-        setItems(localItems);
+        setItems(sanitizeItems(localItems));
 
         // Fetch employees
         const empList = await api.employees.list();
@@ -133,7 +138,7 @@ export const CatalogView: React.FC<CatalogViewProps> = ({ currentUserState }) =>
     // Subscribe to background sync status changes to reload items when sync completes
     const unsubscribeSync = registerSyncStateListener((isSync) => {
       if (!isSync) {
-        db.items.toArray().then(setItems).catch(console.error);
+        db.items.toArray().then(raw => setItems(sanitizeItems(raw))).catch(console.error);
       }
     });
 
@@ -373,7 +378,7 @@ export const CatalogView: React.FC<CatalogViewProps> = ({ currentUserState }) =>
         }
       }
 
-      setItems(await db.items.toArray());
+      setItems(sanitizeItems(await db.items.toArray()));
       setTimeout(() => {
         setShowEditModal(false);
         setActiveItem(null);
@@ -391,7 +396,7 @@ export const CatalogView: React.FC<CatalogViewProps> = ({ currentUserState }) =>
       const res = await api.items.delete(id, currentUserState.role);
       if (res.success) {
         await db.items.delete(id);
-        setItems(await db.items.toArray());
+        setItems(sanitizeItems(await db.items.toArray()));
         setShowEditModal(false);
         setActiveItem(null);
       }

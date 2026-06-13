@@ -129,7 +129,7 @@ export async function triggerSync(): Promise<{ success: boolean; pushed: number;
       const lastPulledAt = lastItem?.updatedAt || undefined;
 
       const pullResult = await api.sync.pull(lastPulledAt);
-      const serverItems = pullResult.items;
+      const serverItems = JSON.parse(JSON.stringify(pullResult.items));
       results.pulled = serverItems.length;
 
       if (serverItems.length > 0) {

@@ -66,6 +66,7 @@ FIREBASE_CRED_PATH = os.path.join(
 firebase_cred_env = os.environ.get("FIREBASE_CREDENTIALS_JSON")
 if firebase_cred_env:
     try:
+        firebase_cred_env = firebase_cred_env.strip("'\"")
         cred_data = json.loads(firebase_cred_env)
         logger.info("🔐 Loaded Firebase credentials from environment variable")
     except Exception as e:

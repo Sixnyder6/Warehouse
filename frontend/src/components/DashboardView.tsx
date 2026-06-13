@@ -63,7 +63,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ currentUserState, 
 
       
       const cachedOrders = await db.orders.toArray();
-      const localActiveOrders = cachedOrders.filter(o => ['CREATED', 'PROCESSING', 'READY'].includes(o.status)).length;
+      const localActiveOrders = cachedOrders.filter(o => o.status === 'CREATED' || o.status === 'PROCESSING' || o.status === 'READY').length;
       
       const cachedLogs = await db.logs.orderBy('timestamp').reverse().limit(5).toArray();
 

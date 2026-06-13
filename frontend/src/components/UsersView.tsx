@@ -160,7 +160,7 @@ export const UsersView: React.FC = () => {
   const filteredUsers = mergedUsers.filter(user => {
     if (roleFilter === 'all') return true;
     if (roleFilter === 'management') {
-      return ['admin', 'inventory_manager'].includes(user.role);
+      return user.role === 'admin' || user.role === 'inventory_manager';
     }
     return user.role === roleFilter;
   });

@@ -26,7 +26,7 @@ interface ImportStatus {
 }
 
 export const ImportExportView: React.FC<ImportExportViewProps> = ({ currentUserState }) => {
-  const isManagerOrAdmin = ['admin', 'inventory_manager'].includes(currentUserState.role || '');
+  const isManagerOrAdmin = currentUserState.role === 'admin' || currentUserState.role === 'inventory_manager';
 
   // Excel Import States
   const [excelFile, setExcelFile] = useState<File | null>(null);

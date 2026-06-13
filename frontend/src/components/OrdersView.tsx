@@ -73,9 +73,9 @@ export const OrdersView: React.FC<OrdersViewProps> = ({ currentUserState }) => {
   // Filter orders based on tabs
   const filteredOrders = orders.filter(o => {
     if (filterTab === 'active') {
-      return ['CREATED', 'PROCESSING', 'READY'].includes(o.status);
+      return o.status === 'CREATED' || o.status === 'PROCESSING' || o.status === 'READY';
     } else {
-      return ['COMPLETED', 'CANCELLED'].includes(o.status);
+      return o.status === 'COMPLETED' || o.status === 'CANCELLED';
     }
   });
 

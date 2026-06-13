@@ -40,7 +40,10 @@ from google.oauth2 import service_account
 from google.auth.transport.requests import Request as AuthRequest
 
 from app.models import AuthState, UserRole, ShiftRequestStatus
-from app.services.telemetry_service import log_operation, is_read_budget_exceeded
+from app.services.telemetry_service import (
+    log_operation, is_read_budget_exceeded,
+    get_cached_value, set_cached_value, clear_cached_value
+)
 
 # ==========================================
 # ЛОГГИРОВАНИЕ
@@ -397,12 +400,18 @@ class AuthService:
             cached = _user_cache.get(cache_key)
             if cached is not None:
                 return cached
+            
+            sqlite_cached = get_cached_value(cache_key)
+            if sqlite_cached is not None:
+                _user_cache.set(cache_key, sqlite_cached, ttl_seconds=120)
+                return sqlite_cached
 
         users = await firestore_query_by_field("internal_users", "email", email, limit=1)
         if users:
             user = users[0]
             if use_cache:
                 _user_cache.set(cache_key, user, ttl_seconds=120)
+                set_cached_value(cache_key, user, ttl_seconds=600)
             return user
         return None
 
@@ -415,12 +424,18 @@ class AuthService:
             cached = _user_cache.get(cache_key)
             if cached is not None:
                 return cached
+                
+            sqlite_cached = get_cached_value(cache_key)
+            if sqlite_cached is not None:
+                _user_cache.set(cache_key, sqlite_cached, ttl_seconds=120)
+                return sqlite_cached
 
         users = await firestore_query_by_field("internal_users", "username", username, limit=1)
         if users:
             user = users[0]
             if use_cache:
                 _user_cache.set(cache_key, user, ttl_seconds=120)
+                set_cached_value(cache_key, user, ttl_seconds=600)
             return user
         return None
 
@@ -430,11 +445,30 @@ class AuthService:
             cached = _user_cache.get(cache_key)
             if cached is not None:
                 return cached
+                
+            sqlite_cached = get_cached_value(cache_key)
+            if sqlite_cached is not None:
+                _user_cache.set(cache_key, sqlite_cached, ttl_seconds=120)
+                return sqlite_cached
 
         user = await firestore_get_document("internal_users", user_id)
         if user and use_cache:
             _user_cache.set(cache_key, user, ttl_seconds=120)
+            set_cached_value(cache_key, user, ttl_seconds=600)
         return user
+
+    def clear_user_cache(self, user_id: str, username: Optional[str] = None, email: Optional[str] = None):
+        """Сбросить кэш пользователя во избежание stale-состояний (например, при начале смены)."""
+        _user_cache.clear(f"user_id_{user_id}")
+        _user_cache.clear(f"user_state_{user_id}")
+        clear_cached_value(f"user_id_{user_id}")
+        clear_cached_value(f"user_state_{user_id}")
+        if username:
+            _user_cache.clear(f"user_{username}")
+            clear_cached_value(f"user_{username}")
+        if email:
+            _user_cache.clear(f"user_email_{email}")
+            clear_cached_value(f"user_email_{email}")
 
     def _verify_password(self, password: str, stored_password: str) -> bool:
         """Проверяет пароль: поддерживает hash:SHA256 и открытый текст."""
@@ -618,12 +652,29 @@ class AuthService:
 
     async def get_user_state(self, user_id: str) -> AuthState:
         cache_key = f"user_state_{user_id}"
+        
+        # 1. Проверяем in-memory кэш
         cached = _user_cache.get(cache_key)
         if cached:
             return cached
 
+        # 2. Проверяем SQLite кэш
+        sqlite_cached = get_cached_value(cache_key)
+        if sqlite_cached:
+            try:
+                # Превращаем dict обратно в AuthState Pydantic-модель
+                from app.models import AuthState
+                auth_state = AuthState(**sqlite_cached)
+                _user_cache.set(cache_key, auth_state, ttl_seconds=30)
+                return auth_state
+            except Exception as e:
+                logger.error(f"Error parsing AuthState from SQLite cache: {e}")
+
+        # 3. Инициализируем состояние
         auth_state = await self.initialize_auth_state(user_id)
         _user_cache.set(cache_key, auth_state, ttl_seconds=30)
+        # Сохраняем в SQLite кэш на 30 секунд
+        set_cached_value(cache_key, auth_state.model_dump(), ttl_seconds=30)
         return auth_state
 
     async def start_shift_locally(self, user_id: str) -> AuthState:

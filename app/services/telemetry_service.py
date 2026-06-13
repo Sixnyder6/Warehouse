@@ -1,8 +1,9 @@
 import sqlite3
 import os
 import logging
+import json
 from datetime import datetime, timezone, timedelta
-from typing import Dict, List, Any
+from typing import Dict, List, Any, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -18,6 +19,13 @@ def init_db():
         cursor = conn.cursor()
         # WAL-режим для ускорения записи и безопасного параллельного чтения
         cursor.execute("PRAGMA journal_mode=WAL")
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS wms_cache (
+                key TEXT PRIMARY KEY,
+                value TEXT,
+                expires_at DATETIME
+            )
+        """)
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS firestore_operations (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -234,3 +242,192 @@ def is_read_budget_exceeded(max_daily_reads: int = 40000) -> bool:
     except Exception as e:
         logger.error(f"Error checking read budget: {e}")
         return _budget_status["exceeded"]
+
+
+def get_cached_value(key: str) -> Optional[Any]:
+    """
+    Возвращает значение из SQLite-кэша, если оно существует и не истекло.
+    """
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
+        cursor.execute(
+            "SELECT value, expires_at FROM wms_cache WHERE key = ?",
+            (key,)
+        )
+        row = cursor.fetchone()
+        conn.close()
+        
+        if row:
+            value_str, expires_at_str = row
+            # expires_at_str в формате YYYY-MM-DD HH:MM:SS (UTC)
+            expires_at = datetime.fromisoformat(expires_at_str.replace("Z", "+00:00"))
+            if expires_at.tzinfo is None:
+                expires_at = expires_at.replace(tzinfo=timezone.utc)
+            
+            if datetime.now(timezone.utc) < expires_at:
+                try:
+                    return json.loads(value_str)
+                except Exception as je:
+                    logger.error(f"Error parsing cached JSON for {key}: {je}")
+                    return None
+            else:
+                # Удаляем просроченный кэш
+                clear_cached_value(key)
+        return None
+    except Exception as e:
+        logger.error(f"Error reading sqlite cache for {key}: {e}")
+        return None
+
+def set_cached_value(key: str, value: Any, ttl_seconds: int = 600):
+    """
+    Записывает сериализованное в JSON значение в SQLite-кэш с заданным TTL.
+    """
+    try:
+        value_str = json.dumps(value, default=str)
+        expires_at = datetime.now(timezone.utc) + timedelta(seconds=ttl_seconds)
+        expires_at_str = expires_at.isoformat().replace("+00:00", "Z")
+        
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
+        cursor.execute(
+            "INSERT OR REPLACE INTO wms_cache (key, value, expires_at) VALUES (?, ?, ?)",
+            (key, value_str, expires_at_str)
+        )
+        conn.commit()
+        conn.close()
+    except Exception as e:
+        logger.error(f"Error writing sqlite cache for {key}: {e}")
+
+def clear_cached_value(key: str):
+    """
+    Удаляет ключ из SQLite-кэша.
+    """
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
+        cursor.execute("DELETE FROM wms_cache WHERE key = ?", (key,))
+        conn.commit()
+        conn.close()
+    except Exception as e:
+        logger.error(f"Error clearing sqlite cache for {key}: {e}")
+
+def update_item_in_sqlite_cache(item_id: str, updates: dict):
+    """
+    Точечно обновляет поля товара во всех списках товаров, кэшированных в SQLite.
+    """
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
+        
+        # Находим все ключи кэша товаров
+        cursor.execute("SELECT key, value FROM wms_cache WHERE key LIKE 'warehouse_items_limit_%'")
+        rows = cursor.fetchall()
+        
+        for key, value_str in rows:
+            try:
+                items = json.loads(value_str)
+                updated = False
+                for item in items:
+                    if item.get("id") == item_id:
+                        for k, v in updates.items():
+                            item[k] = v
+                        # Также обновим время обновления товара для синхронизации
+                        item["updatedAt"] = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+                        updated = True
+                
+                if updated:
+                    cursor.execute(
+                        "UPDATE wms_cache SET value = ? WHERE key = ?",
+                        (json.dumps(items, default=str), key)
+                    )
+            except Exception as je:
+                logger.error(f"Error updating item {item_id} in cache key {key}: {je}")
+                
+        # Также очистим индивидуальный кэш товара, если он есть
+        cursor.execute("DELETE FROM wms_cache WHERE key = ?", (f"warehouse_item_{item_id}",))
+        
+        conn.commit()
+        conn.close()
+    except Exception as e:
+        logger.error(f"Error performing incremental sqlite cache update for item {item_id}: {e}")
+
+def add_item_to_sqlite_cache(item: dict):
+    """
+    Добавляет новый товар во все кэшированные списки товаров в SQLite.
+    """
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
+        
+        cursor.execute("SELECT key, value FROM wms_cache WHERE key LIKE 'warehouse_items_limit_%'")
+        rows = cursor.fetchall()
+        
+        # Убедимся, что updatedAt в формате ISO строки
+        if isinstance(item.get("updatedAt"), datetime):
+            item["updatedAt"] = item["updatedAt"].isoformat().replace("+00:00", "Z")
+            
+        for key, value_str in rows:
+            try:
+                items = json.loads(value_str)
+                # Проверим, нет ли уже такого товара
+                if not any(i.get("id") == item.get("id") for i in items):
+                    items.append(item)
+                    cursor.execute(
+                        "UPDATE wms_cache SET value = ? WHERE key = ?",
+                        (json.dumps(items, default=str), key)
+                    )
+            except Exception as je:
+                logger.error(f"Error adding item to cache key {key}: {je}")
+                
+        conn.commit()
+        conn.close()
+    except Exception as e:
+        logger.error(f"Error adding item to sqlite cache: {e}")
+
+def delete_item_from_sqlite_cache(item_id: str):
+    """
+    Помечает товар как удаленный или удаляет его из всех кэшированных списков товаров.
+    """
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
+        
+        cursor.execute("SELECT key, value FROM wms_cache WHERE key LIKE 'warehouse_items_limit_%'")
+        rows = cursor.fetchall()
+        
+        for key, value_str in rows:
+            try:
+                items = json.loads(value_str)
+                updated = False
+                
+                # Если ключ кэша включает удаленные, помечаем isDeleted=True, иначе физически удаляем из списка
+                include_deleted = "True" in key
+                
+                new_items = []
+                for item in items:
+                    if item.get("id") == item_id:
+                        if include_deleted:
+                            item["isDeleted"] = True
+                            item["updatedAt"] = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+                            new_items.append(item)
+                        updated = True
+                    else:
+                        new_items.append(item)
+                
+                if updated:
+                    cursor.execute(
+                        "UPDATE wms_cache SET value = ? WHERE key = ?",
+                        (json.dumps(new_items, default=str), key)
+                    )
+            except Exception as je:
+                logger.error(f"Error deleting item {item_id} from cache key {key}: {je}")
+                
+        # Очистим индивидуальный кэш товара
+        cursor.execute("DELETE FROM wms_cache WHERE key = ?", (f"warehouse_item_{item_id}",))
+        
+        conn.commit()
+        conn.close()
+    except Exception as e:
+        logger.error(f"Error deleting item from sqlite cache: {e}")
+

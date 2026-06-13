@@ -151,8 +151,23 @@ def get_auth_service() -> AuthService:
 
 @app.get("/")
 async def root_redirect(request: Request):
+    auth_service = get_auth_service()
+    cookie_user_id = request.cookies.get("wms_user_id")
+    user_id = auth_service.current_user_id or cookie_user_id
+    
+    if user_id:
+        try:
+            user_state = await auth_service.get_user_state(user_id)
+            if user_state and user_state.is_logged_in:
+                # Если роль не является административной (mover, electrician, technic, security, user) - принудительно на мобильный дашборд
+                if user_state.role not in [UserRole.ADMIN, UserRole.INVENTORY_MANAGER, UserRole.SUPERVISOR]:
+                    return RedirectResponse(url="/mobile/dashboard", status_code=303)
+                else:
+                    return RedirectResponse(url="/desktop/dashboard", status_code=303)
+        except Exception as e:
+            logger.error(f"Error resolving user role in root redirect: {e}")
+            
     user_agent = request.headers.get("user-agent", "").lower()
-    # Проверяем, мобильное ли устройство
     is_mobile = any(keyword in user_agent for keyword in ["mobi", "android", "iphone", "ipad", "ipod", "opera mini", "iemobile"])
     if is_mobile:
         return RedirectResponse(url="/mobile/dashboard", status_code=303)
@@ -1309,9 +1324,10 @@ async def mobile_api_shift_start(request: Request):
         if not success:
             return {"success": False, "error": "Ошибка при записи в базу данных (Firestore)"}
 
-        # Обновляем/создаем сессию в локальном кэше
-        from app.services.auth_service import _user_cache
-        user_data = await get_auth_service().get_user_by_id(user_id, use_cache=False)
+        # Очищаем кэш и получаем обновленные данные из Firestore
+        auth_service = get_auth_service()
+        auth_service.clear_user_cache(user_id)
+        user_data = await auth_service.get_user_by_id(user_id, use_cache=True)
         display_name = user_data.get("displayName") if user_data else "Сотрудник"
         role = user_data.get("role") if user_data else "muver"
         is_allowed = user_data.get("isAllowedToWork", True) if user_data else True
@@ -1328,10 +1344,6 @@ async def mobile_api_shift_start(request: Request):
             is_allowed_to_work=is_allowed,
             shift_request_status=ShiftRequestStatus.APPROVED
         )
-
-        # Очищаем кэш авторизации
-        _user_cache.clear(f"user_state_{user_id}")
-        _user_cache.clear(f"user_id_{user_id}")
 
         logger.info(f"🟢 Смена успешно начата для пользователя {user_id} ({display_name})")
         return {"success": True}
@@ -1366,9 +1378,9 @@ async def mobile_api_shift_request_access(request: Request):
         if user_id in _mobile_auth_sessions:
             _mobile_auth_sessions[user_id].shift_request_status = ShiftRequestStatus.PENDING
 
-        from app.services.auth_service import _user_cache
-        _user_cache.clear(f"user_state_{user_id}")
-        _user_cache.clear(f"user_id_{user_id}")
+        # Очищаем кэш авторизации (в памяти и в SQLite)
+        auth_service = get_auth_service()
+        auth_service.clear_user_cache(user_id)
 
         logger.info(f"📩 Запрошен доступ к смене для пользователя {user_id}")
         return {"success": True}
@@ -1730,6 +1742,21 @@ async def catch_all(request: Request, path_name: str):
     # 1. API routes must return 404
     if path_name.startswith("api/") or path_name.startswith("docs") or path_name.startswith("openapi.json"):
         raise HTTPException(status_code=404, detail="API route not found")
+        
+    # Если пользователь авторизован и пытается зайти на десктопный маршрут, проверяем его роль
+    auth_service = get_auth_service()
+    cookie_user_id = request.cookies.get("wms_user_id")
+    user_id = auth_service.current_user_id or cookie_user_id
+    
+    if user_id and not path_name.startswith("mobile/"):
+        try:
+            user_state = await auth_service.get_user_state(user_id)
+            if user_state and user_state.is_logged_in:
+                # Если роль не административная - принудительно перенаправляем на мобильную версию
+                if user_state.role not in [UserRole.ADMIN, UserRole.INVENTORY_MANAGER, UserRole.SUPERVISOR]:
+                    return RedirectResponse(url="/mobile/dashboard", status_code=303)
+        except Exception as e:
+            logger.error(f"Error checking user role in catch_all: {e}")
     
     # 2. Check if the file exists directly in frontend/dist folder (e.g. favicon.svg, icons.svg)
     file_path = os.path.join(FRONTEND_DIST_DIR, path_name)

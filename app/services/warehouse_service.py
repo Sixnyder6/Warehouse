@@ -38,7 +38,11 @@ from app.models import (
     NewsItem, NewsItemCreate, NewsTag, Employee,
     SyncPushOperation
 )
-from app.services.telemetry_service import log_operation, is_read_budget_exceeded
+from app.services.telemetry_service import (
+    log_operation, is_read_budget_exceeded,
+    get_cached_value, set_cached_value, clear_cached_value,
+    update_item_in_sqlite_cache, add_item_to_sqlite_cache, delete_item_from_sqlite_cache
+)
 
 # ==========================================
 # ЛОГГИРОВАНИЕ
@@ -538,21 +542,31 @@ async def firestore_delete_document(collection: str, doc_id: str) -> bool:
 # ==========================================
 
 async def get_items(limit: int = 1000, use_cache: bool = True, include_deleted: bool = False) -> List[dict]:
-    """Получить товары. Теперь отфильтровывает удаленные по умолчанию."""
+    """Получить товары. Сначала проверяет in-memory, затем SQLite кэш, затем Firestore."""
     cache_key = f"warehouse_items_limit_{limit}_{include_deleted}"
     
     if use_cache:
+        # 1. In-memory кэш (быстрый)
         cached = _cache.get(cache_key)
         if cached is not None:
             return cached
+            
+        # 2. SQLite кэш (общий между воркерами)
+        sqlite_cached = get_cached_value(cache_key)
+        if sqlite_cached is not None:
+            _cache.set(cache_key, sqlite_cached, ttl_seconds=120)
+            return sqlite_cached
     
+    # 3. Запрос к Firestore
     items, _ = await firestore_get_all_paginated("warehouse_items", page_size=limit)
     
     if not include_deleted:
         items = [i for i in items if not i.get("isDeleted", False)]
     
     if use_cache:
-        _cache.set(cache_key, items, ttl_seconds=600)
+        _cache.set(cache_key, items, ttl_seconds=120)
+        # В SQLite кэшируем на 30 минут, т.к. при записи мы обновляем его точечно
+        set_cached_value(cache_key, items, ttl_seconds=1800)
     
     return items
 
@@ -564,10 +578,16 @@ async def get_item(item_id: str, use_cache: bool = True) -> Optional[dict]:
         cached = _cache.get(cache_key)
         if cached is not None:
             return cached
+            
+        sqlite_cached = get_cached_value(cache_key)
+        if sqlite_cached is not None:
+            _cache.set(cache_key, sqlite_cached, ttl_seconds=60)
+            return sqlite_cached
     
     item = await firestore_get_document("warehouse_items", item_id)
     if use_cache and item:
         _cache.set(cache_key, item, ttl_seconds=60)
+        set_cached_value(cache_key, item, ttl_seconds=600)
     
     return item
 
@@ -612,6 +632,9 @@ async def create_item(item_data: WarehouseItemCreate) -> Tuple[bool, str]:
             "isDeleted": False
         }
         doc_id = await firestore_create_document("warehouse_items", data)
+        # Добавляем новый товар в SQLite кэш
+        data["id"] = doc_id
+        add_item_to_sqlite_cache(data)
         _cache.clear()
         return True, doc_id
     except Exception as e:
@@ -641,6 +664,8 @@ async def update_item(item_id: str, item_data: WarehouseItemUpdate) -> Tuple[boo
         success = await firestore_update_document("warehouse_items", item_id, updates)
         
         if success:
+            # Точечно обновляем в SQLite кэше
+            update_item_in_sqlite_cache(item_id, updates)
             _cache.clear()
         
         return success, ""
@@ -658,6 +683,8 @@ async def delete_item(item_id: str) -> Tuple[bool, str]:
         success = await firestore_update_document("warehouse_items", item_id, updates)
         
         if success:
+            # Точечно помечаем удаленным в SQLite кэше
+            delete_item_from_sqlite_cache(item_id)
             _cache.clear()
         
         return success, "" if success else "Ошибка удаления"
@@ -682,14 +709,18 @@ async def take_item(item_id: str, quantity: int, user_name: str, user_id: str = 
             return False, f"Недостаточно товара! Остаток: {current_stock}"
 
         new_stock = current_stock - quantity
+        now_time = datetime.now(timezone.utc)
 
         update_success = await firestore_update_document(
             "warehouse_items", item_id,
-            {"stockCount": new_stock, "updatedAt": datetime.now(timezone.utc)}
+            {"stockCount": new_stock, "updatedAt": now_time}
         )
 
         if not update_success:
             return False, "Ошибка обновления остатка"
+
+        # Точечно обновляем в SQLite кэше
+        update_item_in_sqlite_cache(item_id, {"stockCount": new_stock, "updatedAt": now_time})
 
         log_data = {
             "itemId": item_id,
@@ -697,7 +728,7 @@ async def take_item(item_id: str, quantity: int, user_name: str, user_id: str = 
             "userId": user_id,
             "userName": user_name,
             "quantityChange": -quantity,
-            "timestamp": timestamp or datetime.now(timezone.utc),
+            "timestamp": timestamp or now_time,
         }
         await firestore_create_document("warehouse_logs", log_data)
         
@@ -745,6 +776,9 @@ async def take_items_batch(items: List[dict], user_name: str, user_id: str, time
             if not update_success:
                 return False, f"Ошибка обновления остатка для '{item_name}'"
 
+            # Точечно обновляем в SQLite кэше
+            update_item_in_sqlite_cache(item_id, {"stockCount": new_stock, "updatedAt": now_time})
+
             log_data = {
                 "itemId": item_id,
                 "itemName": item_name,
@@ -771,14 +805,18 @@ async def add_stock(item_id: str, quantity: int, user_name: str, user_id: str = 
         current_stock = item.get("stockCount", 0)
         item_name = item.get("shortName", "Неизвестно")
         new_stock = current_stock + quantity
+        now_time = datetime.now(timezone.utc)
 
         update_success = await firestore_update_document(
             "warehouse_items", item_id,
-            {"stockCount": new_stock, "updatedAt": datetime.now(timezone.utc)}
+            {"stockCount": new_stock, "updatedAt": now_time}
         )
 
         if not update_success:
             return False, "Ошибка обновления остатка"
+
+        # Точечно обновляем в SQLite кэше
+        update_item_in_sqlite_cache(item_id, {"stockCount": new_stock, "updatedAt": now_time})
 
         log_data = {
             "itemId": item_id,
@@ -786,7 +824,7 @@ async def add_stock(item_id: str, quantity: int, user_name: str, user_id: str = 
             "userId": user_id,
             "userName": user_name,
             "quantityChange": quantity,
-            "timestamp": timestamp or datetime.now(timezone.utc),
+            "timestamp": timestamp or now_time,
         }
         await firestore_create_document("warehouse_logs", log_data)
         
@@ -904,17 +942,21 @@ async def take_item_to_recipient(
             return False, f"Недостаточно товара! Остаток: {current_stock}"
 
         new_stock = current_stock - quantity
+        now_time = datetime.now(timezone.utc)
 
         update_success = await firestore_update_document(
             "warehouse_items", item_id,
-            {"stockCount": new_stock, "updatedAt": datetime.now(timezone.utc)}
+            {"stockCount": new_stock, "updatedAt": now_time}
         )
 
         if not update_success:
             return False, "Ошибка обновления остатка"
 
+        # Точечно обновляем в SQLite кэше
+        update_item_in_sqlite_cache(item_id, {"stockCount": new_stock, "updatedAt": now_time})
+
         # Расширенный лог с issuer и recipient
-        ts = timestamp or datetime.now(timezone.utc)
+        ts = timestamp or now_time
         log_data = {
             "itemId": item_id,
             "itemName": item_name,
@@ -961,16 +1003,20 @@ async def return_item_to_stock(
         current_stock = item.get("stockCount", 0)
         item_name = item.get("shortName", "Неизвестно")
         new_stock = current_stock + quantity
+        now_time = datetime.now(timezone.utc)
 
         update_success = await firestore_update_document(
             "warehouse_items", item_id,
-            {"stockCount": new_stock, "updatedAt": datetime.now(timezone.utc)}
+            {"stockCount": new_stock, "updatedAt": now_time}
         )
 
         if not update_success:
             return False, "Ошибка обновления остатка"
 
-        ts = timestamp or datetime.now(timezone.utc)
+        # Точечно обновляем в SQLite кэше
+        update_item_in_sqlite_cache(item_id, {"stockCount": new_stock, "updatedAt": now_time})
+
+        ts = timestamp or now_time
         log_data = {
             "itemId": item_id,
             "itemName": item_name,
@@ -1261,9 +1307,17 @@ async def get_today_activity_stats() -> Dict[str, Dict[str, int]]:
     Возвращает статистику сканирования сотрудников за сегодня, сгруппированную по ID (creatorId).
     """
     cache_key = "today_activity_stats"
+    
+    # 1. Проверяем in-memory кэш
     cached = _cache.get(cache_key)
     if cached is not None:
         return cached
+
+    # 2. Проверяем SQLite кэш
+    sqlite_cached = get_cached_value(cache_key)
+    if sqlite_cached is not None:
+        _cache.set(cache_key, sqlite_cached, ttl_seconds=60)
+        return sqlite_cached
 
     try:
         local_today = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
@@ -1296,7 +1350,8 @@ async def get_today_activity_stats() -> Dict[str, Dict[str, int]]:
             stats[creator_id]["scansToday"] += item_count
             stats[creator_id]["batchesToday"] += 1
             
-        _cache.set(cache_key, stats, ttl_seconds=180) # Кэшируем на 3 минуты
+        _cache.set(cache_key, stats, ttl_seconds=60)
+        set_cached_value(cache_key, stats, ttl_seconds=300) # В SQLite кэшируем на 5 минут
         return stats
     except Exception as e:
         logger.error(f"❌ Ошибка получения статистики активности: {e}")
@@ -1305,9 +1360,17 @@ async def get_today_activity_stats() -> Dict[str, Dict[str, int]]:
 
 async def get_internal_users(limit: int = 100) -> List[dict]:
     cache_key = f"internal_users_{limit}"
+    
+    # 1. Проверяем in-memory кэш
     cached = _cache.get(cache_key)
     if cached is not None:
         return cached
+        
+    # 2. Проверяем SQLite кэш
+    sqlite_cached = get_cached_value(cache_key)
+    if sqlite_cached is not None:
+        _cache.set(cache_key, sqlite_cached, ttl_seconds=60)
+        return sqlite_cached
     
     users, _ = await firestore_get_all_paginated("internal_users", page_size=limit)
     
@@ -1328,7 +1391,8 @@ async def get_internal_users(limit: int = 100) -> List[dict]:
         user["batchesToday"] = user_stats["batchesToday"]
         user["scanRatePerHour"] = int(user_stats["scansToday"] / hours_elapsed)
         
-    _cache.set(cache_key, users, ttl_seconds=300) # Увеличили TTL кэша до 5 минут для экономии лимитов
+    _cache.set(cache_key, users, ttl_seconds=60)
+    set_cached_value(cache_key, users, ttl_seconds=300) # В SQLite кэшируем на 5 минут
     return users
 
 

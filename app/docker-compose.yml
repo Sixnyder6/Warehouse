@@ -16,6 +16,8 @@ services:
     volumes:
       # Пробрасываем firebase credentials из папки firebase/
       - ../firebase/firebase_credentials.json:/app/firebase/firebase_credentials.json
+      # Монтируем файл БД телеметрии и кэша для персистентности между перезапусками
+      - ../firebase_telemetry.db:/app/firebase_telemetry.db
     logging:
       driver: "json-file"
       options:
